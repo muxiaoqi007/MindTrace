@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Blob shape -->
+    <path
+        android:pathData="M20,50 Q20,30 35,15 Q50,5 65,15 Q80,30 80,50 Q80,65 65,80 Q50,90 35,80 Q20,65 20,50"
+        android:fillColor="#c084fc"/>
+    <!-- Eyes -->
+    <path
+        android:pathData="M35,45 A3,3 0 1,1 34.99,45"
+        android:fillColor="#ffffff"/>
+    <path
+        android:pathData="M65,45 A3,3 0 1,1 64.99,45"
+        android:fillColor="#ffffff"/>
+    <!-- Smile -->
+    <path
+        android:pathData="M40,55 Q50,65 60,55"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+</vector>

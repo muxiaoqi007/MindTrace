@@ -1,0 +1,38 @@
+# 构建产物
+*.apk
+*.aar
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+build/
+.gradle/
+
+# 本地配置（含 SDK 路径，不应入库）
+local.properties
+
+# 日志与性能分析
+*.log
+*.hprof
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 签名文件（绝不入库）
+*.jks
+*.keystore
+
+# macOS
+.DS_Store
+
+# 项目临时文件
+ui/iShot_*.png

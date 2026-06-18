@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Puddle blob -->
+    <path
+        android:pathData="M15,85 Q15,70 35,60 Q50,55 65,60 Q85,70 85,85 L15,85"
+        android:fillColor="#60a5fa"/>
+    <!-- Eyes -->
+    <path
+        android:pathData="M35,75 L40,80"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M60,75 L65,80"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <!-- Bubble -->
+    <path
+        android:pathData="M25,85 A5,5 0 1,1 24.99,85"
+        android:fillColor="#93c5fd"
+        android:fillAlpha="0.5"/>
+</vector>

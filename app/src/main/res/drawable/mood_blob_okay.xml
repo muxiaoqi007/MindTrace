@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Distorted blob -->
+    <path
+        android:pathData="M20,40 Q15,60 30,90 Q50,95 70,90 Q85,60 80,30 Q70,10 50,20 Q30,10 20,40"
+        android:fillColor="#a855f7"/>
+    <!-- Eyes -->
+    <path
+        android:pathData="M30,45 L45,45"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M60,45 L75,45"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <!-- Wavy mouth -->
+    <path
+        android:pathData="M45,65 Q50,70 55,65 Q60,60 65,65"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+</vector>

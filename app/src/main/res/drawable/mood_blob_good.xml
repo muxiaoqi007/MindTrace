@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Melted blob shape -->
+    <path
+        android:pathData="M10,80 Q10,70 20,50 Q35,40 45,50 Q55,60 65,50 Q80,35 90,50 Q95,70 90,80 L10,80"
+        android:fillColor="#a78bfa"/>
+    <!-- Eyes -->
+    <path
+        android:pathData="M35,65 L45,65"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M65,65 L75,65"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <!-- Mouth -->
+    <path
+        android:pathData="M50,72 L60,72"
+        android:strokeWidth="3"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+</vector>

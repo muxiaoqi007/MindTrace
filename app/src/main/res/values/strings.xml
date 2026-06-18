@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MindTrace</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">首页</string>
+    <string name="nav_calendar">日历</string>
+    <string name="nav_add">添加</string>
+    <string name="nav_statistics">统计</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">时间线</string>
+    <string name="home_search_hint">搜索日记、闪念、待办…</string>
+    <string name="home_filter_all">全部</string>
+    <string name="home_filter_diary">日记</string>
+    <string name="home_filter_flashnote">闪念</string>
+    <string name="home_filter_todo">待办</string>
+    <string name="home_empty">还没有任何记录</string>
+    <string name="home_empty_hint">点击下方按钮开始记录</string>
+
+    <!-- Diary -->
+    <string name="diary_title_hint">标题</string>
+    <string name="diary_content_hint">写下你的想法…</string>
+    <string name="diary_save">保存</string>
+    <string name="diary_delete">删除</string>
+    <string name="diary_delete_confirm">确定要删除这篇日记吗？</string>
+    <string name="diary_saved">日记已保存</string>
+    <string name="diary_deleted">日记已删除</string>
+
+    <!-- Flash Note -->
+    <string name="flashnote_title">闪念</string>
+    <string name="flashnote_hint">快速记录一个想法…</string>
+    <string name="flashnote_saved">闪念已保存</string>
+
+    <!-- Todo -->
+    <string name="todo_title">待办事项</string>
+    <string name="todo_add_hint">添加待办事项…</string>
+    <string name="todo_pending">待完成</string>
+    <string name="todo_completed">已完成</string>
+    <string name="todo_priority_high">高优先级</string>
+    <string name="todo_priority_medium">中优先级</string>
+    <string name="todo_priority_low">低优先级</string>
+
+    <!-- Calendar -->
+    <string name="calendar_title">日历</string>
+    <string name="calendar_today">今天</string>
+    <string name="calendar_no_entries">这一天没有记录</string>
+
+    <!-- History -->
+    <string name="history_title">历史上的今天</string>
+    <string name="history_empty">往年的今天没有记录</string>
+    <string name="history_years_ago">%d年前</string>
+
+    <!-- Statistics -->
+    <string name="statistics_title">心情统计</string>
+    <string name="statistics_mood_distribution">心情分布</string>
+    <string name="statistics_mood_trend">心情趋势</string>
+    <string name="statistics_writing_frequency">写作频率</string>
+    <string name="statistics_word_count">字数统计</string>
+    <string name="statistics_total_entries">总记录数</string>
+    <string name="statistics_total_words">总字数</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_sync">同步设置</string>
+    <string name="settings_webdav">WebDAV 同步</string>
+    <string name="settings_webdav_url">服务器地址</string>
+    <string name="settings_webdav_username">用户名</string>
+    <string name="settings_webdav_password">密码</string>
+    <string name="settings_webdav_path">同步路径</string>
+    <string name="settings_webdav_test">测试连接</string>
+    <string name="settings_webdav_sync_now">立即同步</string>
+    <string name="settings_webdav_auto_sync">自动同步</string>
+    <string name="settings_webdav_last_sync">上次同步: %s</string>
+    <string name="settings_webdav_never_synced">从未同步</string>
+    <string name="settings_webdav_connected">连接成功</string>
+    <string name="settings_webdav_failed">连接失败</string>
+    <string name="settings_theme">主题设置</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_backup">备份与恢复</string>
+    <string name="settings_export">导出数据</string>
+    <string name="settings_import">导入数据</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_version">版本 %s</string>
+
+    <!-- Mood -->
+    <string name="mood_select">选择心情</string>
+    <string name="mood_very_happy">非常开心</string>
+    <string name="mood_happy">开心</string>
+    <string name="mood_neutral">一般</string>
+    <string name="mood_sad">难过</string>
+    <string name="mood_very_sad">非常难过</string>
+    <string name="mood_angry">生气</string>
+    <string name="mood_anxious">焦虑</string>
+    <string name="mood_excited">兴奋</string>
+
+    <!-- Common -->
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="save">保存</string>
+    <string name="close">关闭</string>
+    <string name="loading">加载中…</string>
+    <string name="error">出错了</string>
+    <string name="retry">重试</string>
+    <string name="add_image">添加图片</string>
+    <string name="take_photo">拍照</string>
+    <string name="choose_from_gallery">从相册选择</string>
+</resources>

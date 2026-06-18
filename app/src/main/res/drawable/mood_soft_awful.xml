@@ -1,0 +1,39 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Background circle -->
+    <path
+        android:pathData="M50,5 A45,45 0 1,1 49.99,5"
+        android:fillColor="#fde047"/>
+    <!-- Sad eyebrows -->
+    <path
+        android:pathData="M25,45 L35,40"
+        android:strokeWidth="3"
+        android:strokeColor="#3f3f46"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M75,45 L65,40"
+        android:strokeWidth="3"
+        android:strokeColor="#3f3f46"
+        android:strokeLineCap="round"/>
+    <!-- Sad mouth -->
+    <path
+        android:pathData="M40,65 Q50,55 60,65"
+        android:strokeWidth="3"
+        android:strokeColor="#3f3f46"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+    <!-- Tears -->
+    <path
+        android:pathData="M30,55 L30,70"
+        android:strokeWidth="3"
+        android:strokeColor="#38bdf8"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M70,55 L70,70"
+        android:strokeWidth="3"
+        android:strokeColor="#38bdf8"
+        android:strokeLineCap="round"/>
+</vector>

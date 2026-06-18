@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Background -->
+    <path
+        android:pathData="M0,0 L100,0 L100,100 L0,100 Z"
+        android:fillColor="#fce7f3"/>
+    <!-- Sparkle eyes -->
+    <path
+        android:pathData="M30,40 L35,30 L40,40 L35,50 Z"
+        android:fillColor="#1e293b"/>
+    <path
+        android:pathData="M25,40 L45,40"
+        android:strokeWidth="1"
+        android:strokeColor="#1e293b"/>
+    <path
+        android:pathData="M35,30 L35,50"
+        android:strokeWidth="1"
+        android:strokeColor="#1e293b"/>
+    <path
+        android:pathData="M70,40 L75,30 L80,40 L75,50 Z"
+        android:fillColor="#1e293b"/>
+    <path
+        android:pathData="M65,40 L85,40"
+        android:strokeWidth="1"
+        android:strokeColor="#1e293b"/>
+    <path
+        android:pathData="M75,30 L75,50"
+        android:strokeWidth="1"
+        android:strokeColor="#1e293b"/>
+    <!-- Smile -->
+    <path
+        android:pathData="M45,65 Q50,75 55,65"
+        android:strokeWidth="3"
+        android:strokeColor="#1e293b"
+        android:fillColor="#ffffff"/>
+    <!-- Blush -->
+    <path
+        android:pathData="M20,55 L30,60"
+        android:strokeWidth="2"
+        android:strokeColor="#f472b6"/>
+    <path
+        android:pathData="M80,55 L70,60"
+        android:strokeWidth="2"
+        android:strokeColor="#f472b6"/>
+</vector>

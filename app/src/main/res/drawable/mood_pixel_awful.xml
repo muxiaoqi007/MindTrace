@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Background -->
+    <path
+        android:pathData="M0,0 L100,0 L100,100 L0,100 Z"
+        android:fillColor="#3b82f6"/>
+    <!-- Eyes -->
+    <path
+        android:pathData="M20,40 L30,40 L30,50 L20,50 Z"
+        android:fillColor="#ffffff"/>
+    <path
+        android:pathData="M70,40 L80,40 L80,50 L70,50 Z"
+        android:fillColor="#ffffff"/>
+    <!-- Tears -->
+    <path
+        android:pathData="M20,50 L30,50 L30,70 L20,70 Z"
+        android:fillColor="#93c5fd"/>
+    <path
+        android:pathData="M70,50 L80,50 L80,70 L70,70 Z"
+        android:fillColor="#93c5fd"/>
+    <!-- Sad mouth -->
+    <path
+        android:pathData="M40,70 L60,70 L60,80 L40,80 Z"
+        android:fillColor="#ffffff"/>
+</vector>
