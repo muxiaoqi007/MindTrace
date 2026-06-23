@@ -1,8 +1,8 @@
 package com.mindtrace.diary.ui.screens.diary
 
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,15 +10,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.mindtrace.diary.core.util.ImageUtils
-import com.mindtrace.diary.ui.components.ImagePicker
+import com.mindtrace.diary.ui.components.BlockEditor
 import com.mindtrace.diary.ui.components.MoodSelector
-import com.mindtrace.diary.ui.components.RichTextEditor
 import com.mindtrace.diary.ui.components.TagSelector
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,8 +26,6 @@ fun DiaryEditScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val suggestedTags by viewModel.suggestedTags.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.isSaved) {
@@ -91,15 +86,43 @@ fun DiaryEditScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                RichTextEditor(
-                    title = uiState.title,
-                    onTitleChange = viewModel::updateTitle,
-                    content = uiState.content,
-                    onContentChange = viewModel::updateContent,
+                // 标题输入
+                BasicTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::updateTitle,
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (uiState.title.isEmpty()) {
+                                Text(
+                                    text = "标题",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+
+                // 图文混排编辑器
+                BlockEditor(
+                    blocks = uiState.contentBlocks,
+                    onBlocksChange = { viewModel.updateContentBlocks(it) },
+                    onInsertTextBlock = { afterId -> viewModel.insertTextBlock(afterId) },
+                    onInsertImageBlock = { afterId, path -> viewModel.insertImageBlock(afterId, path) },
+                    onDeleteBlock = { blockId -> viewModel.deleteBlock(blockId) },
+                    onUpdateText = { blockId, text -> viewModel.updateBlockText(blockId, text) },
+                    onUpdateImageCaption = { blockId, caption -> viewModel.updateImageCaption(blockId, caption) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f, fill = false)
-                        .heightIn(min = 200.dp)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -116,20 +139,6 @@ fun DiaryEditScreen(
                     suggestedTags = suggestedTags,
                     onTagAdd = viewModel::addTag,
                     onTagRemove = viewModel::removeTag
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                ImagePicker(
-                    images = uiState.images,
-                    onImagesChanged = viewModel::updateImages,
-                    onImagePicked = { uri ->
-                        scope.launch {
-                            ImageUtils.saveImage(context, uri)?.let { path ->
-                                viewModel.addImage(path)
-                            }
-                        }
-                    }
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))

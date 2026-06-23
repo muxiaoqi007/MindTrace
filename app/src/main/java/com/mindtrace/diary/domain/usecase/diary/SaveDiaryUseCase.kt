@@ -1,5 +1,6 @@
 package com.mindtrace.diary.domain.usecase.diary
 
+import com.mindtrace.diary.domain.model.ContentBlock
 import com.mindtrace.diary.domain.model.Diary
 import com.mindtrace.diary.domain.model.DiaryEntry
 import com.mindtrace.diary.domain.model.MoodLevel
@@ -23,6 +24,7 @@ class SaveDiaryUseCase @Inject constructor(
         title: String,
         content: String,
         images: List<String> = emptyList(),
+        contentBlocks: List<ContentBlock> = emptyList(),
         mood: MoodLevel? = null,
         weather: String? = null,
         location: String? = null,
@@ -40,6 +42,7 @@ class SaveDiaryUseCase @Inject constructor(
             title = title,
             content = content,
             images = images,
+            contentBlocks = contentBlocks,
             mood = mood,
             weather = weather,
             location = location,

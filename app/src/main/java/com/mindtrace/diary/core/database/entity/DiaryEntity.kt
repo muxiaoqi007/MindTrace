@@ -11,6 +11,7 @@ data class DiaryEntity(
     val title: String,
     val content: String,
     val images: List<String> = emptyList(),
+    val contentBlocks: List<ContentBlockData> = emptyList(),
     val mood: String? = null,
     val weather: String? = null,
     val location: String? = null,

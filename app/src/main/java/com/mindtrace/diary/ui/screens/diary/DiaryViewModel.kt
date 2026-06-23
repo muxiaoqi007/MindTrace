@@ -4,12 +4,16 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mindtrace.diary.domain.model.ContentBlock
 import com.mindtrace.diary.domain.model.MoodLevel
+import com.mindtrace.diary.domain.model.toImagePaths
+import com.mindtrace.diary.domain.model.toPlainText
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.usecase.diary.DeleteDiaryUseCase
 import com.mindtrace.diary.domain.usecase.diary.GetDiaryByIdUseCase
 import com.mindtrace.diary.domain.usecase.diary.SaveDiaryUseCase
 import com.mindtrace.diary.domain.usecase.tag.GetAllTagsUseCase
+import java.util.UUID
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -62,6 +66,9 @@ class DiaryEditViewModel @Inject constructor(
                             title = diary.title,
                             content = diary.content,
                             images = diary.images,
+                            contentBlocks = diary.contentBlocks.ifEmpty {
+                                listOf(ContentBlock.Text(id = UUID.randomUUID().toString(), text = diary.content))
+                            }.toMutableList(),
                             mood = diary.mood,
                             weather = diary.weather,
                             location = diary.location,
@@ -116,22 +123,104 @@ class DiaryEditViewModel @Inject constructor(
         _uiState.update { it.copy(tags = it.tags - tag) }
     }
 
+    // --- 块级编辑操作 ---
+
+    fun updateContentBlocks(blocks: List<ContentBlock>) {
+        _uiState.update { it.copy(contentBlocks = blocks) }
+    }
+
+    fun updateBlockText(blockId: String, newText: String) {
+        _uiState.update { state ->
+            val blocks = state.contentBlocks.toMutableList()
+            val index = blocks.indexOfFirst { it.id == blockId }
+            if (index >= 0 && blocks[index] is ContentBlock.Text) {
+                blocks[index] = (blocks[index] as ContentBlock.Text).copy(text = newText)
+            }
+            state.copy(contentBlocks = blocks)
+        }
+    }
+
+    fun insertTextBlock(afterBlockId: String? = null) {
+        _uiState.update { state ->
+            val blocks = state.contentBlocks.toMutableList()
+            val newBlock = ContentBlock.Text(id = UUID.randomUUID().toString())
+            if (afterBlockId == null) {
+                blocks.add(newBlock)
+            } else {
+                val index = blocks.indexOfFirst { it.id == afterBlockId }
+                if (index >= 0) {
+                    blocks.add(index + 1, newBlock)
+                } else {
+                    blocks.add(newBlock)
+                }
+            }
+            state.copy(contentBlocks = blocks)
+        }
+    }
+
+    fun insertImageBlock(afterBlockId: String? = null, imagePath: String) {
+        _uiState.update { state ->
+            val blocks = state.contentBlocks.toMutableList()
+            val newBlock = ContentBlock.Image(id = UUID.randomUUID().toString(), path = imagePath)
+            if (afterBlockId == null) {
+                blocks.add(newBlock)
+            } else {
+                val index = blocks.indexOfFirst { it.id == afterBlockId }
+                if (index >= 0) {
+                    blocks.add(index + 1, newBlock)
+                } else {
+                    blocks.add(newBlock)
+                }
+            }
+            state.copy(contentBlocks = blocks)
+        }
+    }
+
+    fun deleteBlock(blockId: String) {
+        _uiState.update { state ->
+            val blocks = state.contentBlocks.toMutableList()
+            blocks.removeAll { it.id == blockId }
+            // 确保至少有一个文字块
+            if (blocks.isEmpty()) {
+                blocks.add(ContentBlock.Text(id = UUID.randomUUID().toString()))
+            }
+            state.copy(contentBlocks = blocks)
+        }
+    }
+
+    fun updateImageCaption(blockId: String, caption: String) {
+        _uiState.update { state ->
+            val blocks = state.contentBlocks.toMutableList()
+            val index = blocks.indexOfFirst { it.id == blockId }
+            if (index >= 0 && blocks[index] is ContentBlock.Image) {
+                blocks[index] = (blocks[index] as ContentBlock.Image).copy(caption = caption)
+            }
+            state.copy(contentBlocks = blocks)
+        }
+    }
+
     fun saveDiary() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
 
             try {
+                val state = _uiState.value
+                // 从 contentBlocks 派生 content 和 images
+                val content = state.contentBlocks.toPlainText()
+                val images = state.contentBlocks.toImagePaths()
+
                 saveDiaryUseCase(
                     id = diaryId,
-                    title = _uiState.value.title,
-                    content = _uiState.value.content,
-                    images = _uiState.value.images,
-                    mood = _uiState.value.mood,
-                    weather = _uiState.value.weather,
-                    location = _uiState.value.location,
-                    tags = _uiState.value.tags,
-                    entries = _uiState.value.entries,
-                    date = _uiState.value.date
+                    title = state.title,
+                    content = content,
+                    images = images,
+                    contentBlocks = state.contentBlocks,
+                    mood = state.mood,
+                    weather = state.weather,
+                    location = state.location,
+                    tags = state.tags,
+                    entries = state.entries,
+                    date = state.date
                 )
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: Exception) {

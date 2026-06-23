@@ -16,13 +16,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.mindtrace.diary.core.util.DateUtils
+import com.mindtrace.diary.domain.model.ContentBlock
 import com.mindtrace.diary.domain.model.DiaryEntry
 import com.mindtrace.diary.domain.model.EntryType
+import com.mindtrace.diary.domain.model.toImagePaths
+import com.mindtrace.diary.domain.model.toPlainText
 import com.mindtrace.diary.ui.components.ImageGallery
 import com.mindtrace.diary.ui.components.MoodChip
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,19 +164,59 @@ fun DiaryDetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Images
-                if (diary.images.isNotEmpty()) {
-                    ImageGallery(images = diary.images)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Content
-                if (diary.content.isNotEmpty()) {
-                    Text(
-                        text = diary.content,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                // Content blocks (图文混排)
+                if (diary.contentBlocks.isNotEmpty()) {
+                    val context = LocalContext.current
+                    diary.contentBlocks.forEach { block ->
+                        when (block) {
+                            is ContentBlock.Text -> {
+                                if (block.text.isNotEmpty()) {
+                                    Text(
+                                        text = block.text,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                            is ContentBlock.Image -> {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(File(block.path))
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                                if (block.caption.isNotEmpty()) {
+                                    Text(
+                                        text = block.caption,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    // 向后兼容：旧格式日记没有 contentBlocks
+                    if (diary.images.isNotEmpty()) {
+                        ImageGallery(images = diary.images)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    if (diary.content.isNotEmpty()) {
+                        Text(
+                            text = diary.content,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
 
                 // Flash Note Entries

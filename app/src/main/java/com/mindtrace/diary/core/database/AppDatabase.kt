@@ -31,7 +31,7 @@ import com.mindtrace.diary.core.database.entity.TodoEntity
         AIMemoryEntity::class,
         AiReviewEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -140,6 +140,53 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE ai_reviews ADD COLUMN userReplyAt INTEGER DEFAULT NULL"
                 )
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add contentBlocks column to diaries table
+                database.execSQL(
+                    "ALTER TABLE diaries ADD COLUMN contentBlocks TEXT NOT NULL DEFAULT '[]'"
+                )
+                // Migrate existing content + images into contentBlocks
+                // For each diary, create blocks: [Text(content)] + [Image(path) for each image]
+                val cursor = database.query("SELECT id, content, images FROM diaries")
+                val gson = com.google.gson.Gson()
+                try {
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(0)
+                        val content = cursor.getString(1) ?: ""
+                        val imagesJson = cursor.getString(2) ?: "[]"
+                        val images = try {
+                            gson.fromJson(imagesJson, Array<String>::class.java)?.toList() ?: emptyList()
+                        } catch (e: Exception) {
+                            emptyList<String>()
+                        }
+                        val blocks = mutableListOf<Map<String, Any?>>()
+                        if (content.isNotEmpty()) {
+                            blocks.add(mapOf(
+                                "id" to java.util.UUID.randomUUID().toString(),
+                                "type" to "TEXT",
+                                "text" to content
+                            ))
+                        }
+                        for (imagePath in images) {
+                            blocks.add(mapOf(
+                                "id" to java.util.UUID.randomUUID().toString(),
+                                "type" to "IMAGE",
+                                "path" to imagePath
+                            ))
+                        }
+                        val blocksJson = gson.toJson(blocks)
+                        database.execSQL(
+                            "UPDATE diaries SET contentBlocks = ? WHERE id = ?",
+                            arrayOf(blocksJson, id)
+                        )
+                    }
+                } finally {
+                    cursor.close()
+                }
             }
         }
     }

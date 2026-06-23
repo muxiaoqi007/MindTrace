@@ -8,6 +8,7 @@ data class Diary(
     val title: String,
     val content: String,
     val images: List<String> = emptyList(),
+    val contentBlocks: List<ContentBlock> = emptyList(),
     val mood: MoodLevel? = null,
     val weather: String? = null,
     val location: String? = null,

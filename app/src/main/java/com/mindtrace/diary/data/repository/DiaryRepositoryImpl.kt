@@ -1,13 +1,17 @@
 package com.mindtrace.diary.data.repository
 
 import com.mindtrace.diary.core.database.dao.DiaryDao
+import com.mindtrace.diary.core.database.entity.ContentBlockData
 import com.mindtrace.diary.core.database.entity.DiaryEntity
 import com.mindtrace.diary.core.database.entity.DiaryEntryData
 import com.mindtrace.diary.core.util.DateUtils
+import com.mindtrace.diary.domain.model.ContentBlock
 import com.mindtrace.diary.domain.model.Diary
 import com.mindtrace.diary.domain.model.DiaryEntry
 import com.mindtrace.diary.domain.model.EntryType
 import com.mindtrace.diary.domain.model.MoodLevel
+import com.mindtrace.diary.domain.model.toImagePaths
+import com.mindtrace.diary.domain.model.toPlainText
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -134,11 +138,16 @@ class DiaryRepositoryImpl @Inject constructor(
     }
 
     private fun DiaryEntity.toDomain(): Diary {
+        val blocks = contentBlocks.map { it.toDomainBlock() }
+        // 从 contentBlocks 派生 content 和 images（向后兼容）
+        val derivedContent = if (blocks.isNotEmpty()) blocks.toPlainText() else content
+        val derivedImages = if (blocks.isNotEmpty()) blocks.toImagePaths() else images
         return Diary(
             id = id,
             title = title,
-            content = content,
-            images = images,
+            content = derivedContent,
+            images = derivedImages,
+            contentBlocks = blocks,
             mood = MoodLevel.fromLegacyMoodType(mood),
             weather = weather,
             location = location,
@@ -156,11 +165,16 @@ class DiaryRepositoryImpl @Inject constructor(
     }
 
     private fun Diary.toEntity(): DiaryEntity {
+        val blocksData = contentBlocks.map { it.toEntityBlock() }
+        // 从 contentBlocks 派生 content 和 images（保持兼容）
+        val contentStr = if (contentBlocks.isNotEmpty()) contentBlocks.toPlainText() else content
+        val imagesList = if (contentBlocks.isNotEmpty()) contentBlocks.toImagePaths() else images
         return DiaryEntity(
             id = id,
             title = title,
-            content = content,
-            images = images,
+            content = contentStr,
+            images = imagesList,
+            contentBlocks = blocksData,
             mood = mood?.name,
             weather = weather,
             location = location,
@@ -195,5 +209,35 @@ class DiaryRepositoryImpl @Inject constructor(
             timestamp = DateUtils.toEpochMillis(timestamp),
             type = type.name
         )
+    }
+
+    private fun ContentBlockData.toDomainBlock(): ContentBlock {
+        return when (type) {
+            "IMAGE" -> ContentBlock.Image(
+                id = id,
+                path = path ?: "",
+                caption = caption ?: ""
+            )
+            else -> ContentBlock.Text(
+                id = id,
+                text = text ?: ""
+            )
+        }
+    }
+
+    private fun ContentBlock.toEntityBlock(): ContentBlockData {
+        return when (this) {
+            is ContentBlock.Text -> ContentBlockData(
+                id = id,
+                type = "TEXT",
+                text = text
+            )
+            is ContentBlock.Image -> ContentBlockData(
+                id = id,
+                type = "IMAGE",
+                path = path,
+                caption = caption
+            )
+        }
     }
 }

@@ -1,9 +1,11 @@
 package com.mindtrace.diary.ui.screens.diary
 
+import com.mindtrace.diary.domain.model.ContentBlock
 import com.mindtrace.diary.domain.model.Diary
 import com.mindtrace.diary.domain.model.DiaryEntry
 import com.mindtrace.diary.domain.model.MoodLevel
 import java.time.LocalDate
+import java.util.UUID
 
 data class DiaryEditUiState(
     val isLoading: Boolean = false,
@@ -12,6 +14,7 @@ data class DiaryEditUiState(
     val title: String = "",
     val content: String = "",
     val images: List<String> = emptyList(),
+    val contentBlocks: List<ContentBlock> = listOf(ContentBlock.Text(id = UUID.randomUUID().toString())),
     val mood: MoodLevel? = null,
     val weather: String? = null,
     val location: String? = null,

@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.mindtrace.diary.core.database.entity.AIMessageData
+import com.mindtrace.diary.core.database.entity.ContentBlockData
 import com.mindtrace.diary.core.database.entity.DiaryEntryData
 
 class Converters {
@@ -47,6 +48,21 @@ class Converters {
     @TypeConverter
     fun toAIMessageDataList(value: String): List<AIMessageData> {
         val listType = object : TypeToken<List<AIMessageData>>() {}.type
+        return try {
+            gson.fromJson(value, listType) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    @TypeConverter
+    fun fromContentBlockDataList(value: List<ContentBlockData>): String {
+        return gson.toJson(value)
+    }
+
+    @TypeConverter
+    fun toContentBlockDataList(value: String): List<ContentBlockData> {
+        val listType = object : TypeToken<List<ContentBlockData>>() {}.type
         return try {
             gson.fromJson(value, listType) ?: emptyList()
         } catch (e: Exception) {
