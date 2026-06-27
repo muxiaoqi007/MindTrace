@@ -1,5 +1,42 @@
 # MindTrace AI 功能设计方案
 
+## 当前 MVP 落地方案：记忆中心 / Soul / 自我画像
+
+当前阶段优先实现“越用越了解自己”的可见闭环，而不是一次性重写完整 AI 架构。
+
+### 已落地的第一阶段能力
+
+- **候选记忆收件箱**：保存日记后，AI 提取出的新理解先进入 `ai_memory_candidates`，需要用户确认后才进入长期记忆。
+- **长期记忆**：继续复用现有 `ai_memories` 表和记忆管理页，确认后的候选记忆以自动记忆写入。
+- **记忆中心**：聚合展示待确认候选数量、长期记忆数量、分类分布，并提供候选记忆、长期记忆、自我画像入口。
+- **Soul 设置**：独立配置 AI 人格、用户称呼、AI 名称、相处偏好和自定义 system prompt。
+- **自我画像初版**：基于本地日记统计、标签和已确认长期记忆生成，不调用 LLM，不作为诊断结论。
+
+### 当前架构原则
+
+```text
+Diary Saved
+  -> ExtractMemoryUseCase
+  -> AIMemoryCandidateRepository
+  -> Memory Inbox
+  -> 用户确认
+  -> AIMemoryRepository / ai_memories
+  -> AIRepositoryImpl.buildMessageList 注入长期记忆 + Soul 配置
+```
+
+### 暂缓的高级能力
+
+- 语义去重 / embedding / 向量检索
+- Provider 原生多态（Claude / Gemini / Ollama native）
+- 多 Agent 编排和 Agent Registry
+- WorkManager AI 任务队列与失败重试
+- AI 数据 WebDAV 同步
+- AI 记忆/候选/会话/回信导入导出
+- LLM 生成复杂 Self Model
+- 记忆版本历史、证据片段、冲突合并
+
+---
+
 ## 一、市场调研
 
 ### 1.1 竞品分析

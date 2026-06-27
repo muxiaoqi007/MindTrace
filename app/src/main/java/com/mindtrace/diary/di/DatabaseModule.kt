@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.mindtrace.diary.core.database.AppDatabase
 import com.mindtrace.diary.core.database.dao.AIConversationDao
+import com.mindtrace.diary.core.database.dao.AIMemoryCandidateDao
 import com.mindtrace.diary.core.database.dao.AIMemoryDao
 import com.mindtrace.diary.core.database.dao.AiReviewDao
 import com.mindtrace.diary.core.database.dao.DiaryDao
@@ -37,7 +38,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_3_4,
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
-                AppDatabase.MIGRATION_6_7
+                AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8
             )
             .build()
     }
@@ -70,6 +72,11 @@ object DatabaseModule {
     @Provides
     fun provideAIMemoryDao(database: AppDatabase): AIMemoryDao {
         return database.aiMemoryDao()
+    }
+
+    @Provides
+    fun provideAIMemoryCandidateDao(database: AppDatabase): AIMemoryCandidateDao {
+        return database.aiMemoryCandidateDao()
     }
 
     @Provides

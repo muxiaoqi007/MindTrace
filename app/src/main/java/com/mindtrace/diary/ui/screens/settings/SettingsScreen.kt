@@ -34,6 +34,8 @@ import com.mindtrace.diary.domain.model.MoodLevel
 fun SettingsScreen(
     onTagsClick: () -> Unit = {},
     onAISettingsClick: () -> Unit = {},
+    onAIMemoryCenterClick: () -> Unit = {},
+    onAISoulConfigClick: () -> Unit = {},
     onWebDAVSettingsClick: () -> Unit = {},
     onMidnightReviewHistoryClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -127,13 +129,45 @@ fun SettingsScreen(
             SettingsSection(title = "AI 伙伴") {
                 ListItem(
                     headlineContent = { Text("AI 设置") },
-                    supportingContent = { Text("配置 AI 服务和对话风格") },
+                    supportingContent = { Text("配置 AI 服务和基础开关") },
                     leadingContent = {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onAISettingsClick() }
+                )
+
+                HorizontalDivider()
+
+                ListItem(
+                    headlineContent = { Text("记忆中心") },
+                    supportingContent = { Text("确认候选记忆、管理长期记忆和查看自我画像") },
+                    leadingContent = {
+                        Icon(Icons.Default.Psychology, contentDescription = null)
+                    },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAIMemoryCenterClick() }
+                )
+
+                HorizontalDivider()
+
+                ListItem(
+                    headlineContent = { Text("Soul 设置") },
+                    supportingContent = { Text("配置 AI 人格、称呼和相处方式") },
+                    leadingContent = {
+                        Icon(Icons.Default.SelfImprovement, contentDescription = null)
+                    },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAISoulConfigClick() }
                 )
 
                 HorizontalDivider()

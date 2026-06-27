@@ -2,11 +2,13 @@ package com.mindtrace.diary.ui.screens.ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mindtrace.diary.core.datastore.AIConfig
 import com.mindtrace.diary.core.datastore.SettingsDataStore
 import com.mindtrace.diary.domain.usecase.ai.TestAIConnectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,11 +32,6 @@ class AISettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(memoryLearningEnabled = enabled) }
             }
         }
-        viewModelScope.launch {
-            settingsDataStore.chatPersonaId.collect { id ->
-                _uiState.update { it.copy(chatPersonaId = id) }
-            }
-        }
     }
 
     fun updateEnabled(enabled: Boolean) {
@@ -47,13 +44,6 @@ class AISettingsViewModel @Inject constructor(
         _uiState.update { it.copy(memoryLearningEnabled = enabled) }
         viewModelScope.launch {
             settingsDataStore.setMemoryLearningEnabled(enabled)
-        }
-    }
-
-    fun updateChatPersona(id: String) {
-        _uiState.update { it.copy(chatPersonaId = id) }
-        viewModelScope.launch {
-            settingsDataStore.setChatPersonaId(id)
         }
     }
 
@@ -75,21 +65,6 @@ class AISettingsViewModel @Inject constructor(
         }
     }
 
-    fun updateSystemPrompt(prompt: String) {
-        _uiState.update {
-            it.copy(config = it.config.copy(systemPrompt = prompt), testResult = null)
-        }
-    }
-
-    fun resetSystemPrompt() {
-        _uiState.update {
-            it.copy(
-                config = it.config.copy(systemPrompt = AIConfig.DEFAULT_SYSTEM_PROMPT),
-                testResult = null
-            )
-        }
-    }
-
     fun saveConfig() {
         viewModelScope.launch {
             settingsDataStore.setAIConfig(_uiState.value.config)
@@ -99,8 +74,6 @@ class AISettingsViewModel @Inject constructor(
     fun testConnection() {
         viewModelScope.launch {
             _uiState.update { it.copy(isTesting = true, testResult = null, error = null) }
-
-            // 先保存配置
             settingsDataStore.setAIConfig(_uiState.value.config)
 
             try {

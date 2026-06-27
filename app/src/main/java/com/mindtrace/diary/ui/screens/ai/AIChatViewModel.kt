@@ -120,9 +120,6 @@ class AIChatViewModel @Inject constructor(
                     it.copy(messages = it.messages + userChatMessage)
                 }
 
-                // 添加到 AI Repository 历史（用于构建上下文）
-                aiRepository.addToHistory(userChatMessage)
-
                 // 发送到 AI 并获取流式响应
                 val responseBuilder = StringBuilder()
                 aiRepository.chatStream(listOf(userChatMessage), includeContext = true)
@@ -138,6 +135,7 @@ class AIChatViewModel @Inject constructor(
                                 conversationRepository.addMessage(conversationId, assistantMessage)
 
                                 // 添加到 AI Repository 历史
+                                aiRepository.addToHistory(userChatMessage)
                                 aiRepository.addToHistory(
                                     ChatMessage(ChatMessage.Role.ASSISTANT, responseBuilder.toString())
                                 )

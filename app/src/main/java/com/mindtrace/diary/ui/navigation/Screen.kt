@@ -111,6 +111,26 @@ sealed class Screen(
         title = "记忆管理"
     )
 
+    object AIMemoryCenter : Screen(
+        route = "ai/memory/center",
+        title = "记忆中心"
+    )
+
+    object AIMemoryInbox : Screen(
+        route = "ai/memory/inbox",
+        title = "候选记忆"
+    )
+
+    object AISoulConfig : Screen(
+        route = "ai/soul",
+        title = "Soul 设置"
+    )
+
+    object AISelfPortrait : Screen(
+        route = "ai/self-portrait",
+        title = "自我画像"
+    )
+
     object AiReviewList : Screen(
         route = "ai/reviews",
         title = "回信历史"

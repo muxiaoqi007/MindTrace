@@ -1,11 +1,14 @@
 package com.mindtrace.diary.data.mapper
 
 import com.mindtrace.diary.core.database.entity.AIConversationEntity
+import com.mindtrace.diary.core.database.entity.AIMemoryCandidateEntity
 import com.mindtrace.diary.core.database.entity.AIMemoryEntity
 import com.mindtrace.diary.core.database.entity.AIMessageData
 import com.mindtrace.diary.domain.model.AIConversation
 import com.mindtrace.diary.domain.model.AIMemory
+import com.mindtrace.diary.domain.model.AIMemoryCandidate
 import com.mindtrace.diary.domain.model.AIMessage
+import com.mindtrace.diary.domain.model.MemoryCandidateStatus
 import com.mindtrace.diary.domain.model.MemoryCategory
 import com.mindtrace.diary.domain.model.MemoryType
 import java.time.Instant
@@ -81,6 +84,36 @@ fun AIMemory.toEntity(): AIMemoryEntity {
         isActive = isActive,
         createdAt = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         updatedAt = updatedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+}
+
+// ========== AIMemoryCandidate Mappers ==========
+
+fun AIMemoryCandidateEntity.toDomain(): AIMemoryCandidate {
+    return AIMemoryCandidate(
+        id = id,
+        category = MemoryCategory.fromString(category),
+        content = content,
+        source = source,
+        importance = importance,
+        status = MemoryCandidateStatus.fromString(status),
+        createdAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(createdAt), ZoneId.systemDefault()),
+        updatedAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(updatedAt), ZoneId.systemDefault()),
+        reviewedAt = reviewedAt?.let { LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault()) }
+    )
+}
+
+fun AIMemoryCandidate.toEntity(): AIMemoryCandidateEntity {
+    return AIMemoryCandidateEntity(
+        id = id,
+        category = category.name.lowercase(),
+        content = content,
+        source = source,
+        importance = importance,
+        status = status.name.lowercase(),
+        createdAt = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        updatedAt = updatedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        reviewedAt = reviewedAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
     )
 }
 

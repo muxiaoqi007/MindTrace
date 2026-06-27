@@ -1,6 +1,7 @@
 package com.mindtrace.diary.di
 
 import com.mindtrace.diary.data.repository.AIConversationRepositoryImpl
+import com.mindtrace.diary.data.repository.AIMemoryCandidateRepositoryImpl
 import com.mindtrace.diary.data.repository.AIMemoryRepositoryImpl
 import com.mindtrace.diary.data.repository.AIRepositoryImpl
 import com.mindtrace.diary.data.repository.AiReviewRepositoryImpl
@@ -10,6 +11,7 @@ import com.mindtrace.diary.data.repository.LLMProviderFactory
 import com.mindtrace.diary.data.repository.LLMProviderFactoryImpl
 import com.mindtrace.diary.data.repository.TodoRepositoryImpl
 import com.mindtrace.diary.domain.repository.AIConversationRepository
+import com.mindtrace.diary.domain.repository.AIMemoryCandidateRepository
 import com.mindtrace.diary.domain.repository.AIMemoryRepository
 import com.mindtrace.diary.domain.repository.AIRepository
 import com.mindtrace.diary.domain.repository.AiReviewRepository
@@ -67,6 +69,12 @@ abstract class RepositoryModule {
     abstract fun bindAIMemoryRepository(
         aiMemoryRepositoryImpl: AIMemoryRepositoryImpl
     ): AIMemoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAIMemoryCandidateRepository(
+        aiMemoryCandidateRepositoryImpl: AIMemoryCandidateRepositoryImpl
+    ): AIMemoryCandidateRepository
 
     @Binds
     @Singleton

@@ -21,8 +21,12 @@ import com.mindtrace.diary.ui.screens.tags.TagsScreen
 import com.mindtrace.diary.ui.screens.todo.TodoScreen
 import com.mindtrace.diary.ui.screens.ai.AIChatScreen
 import com.mindtrace.diary.ui.screens.ai.AISettingsScreen
+import com.mindtrace.diary.ui.screens.ai.MemoryCenterScreen
 import com.mindtrace.diary.ui.screens.ai.ConversationHistoryScreen
+import com.mindtrace.diary.ui.screens.ai.MemoryInboxScreen
 import com.mindtrace.diary.ui.screens.ai.MemoryManagementScreen
+import com.mindtrace.diary.ui.screens.ai.SelfPortraitScreen
+import com.mindtrace.diary.ui.screens.ai.SoulConfigScreen
 import com.mindtrace.diary.ui.screens.webdav.WebDAVSettingsScreen
 
 @Composable
@@ -84,6 +88,12 @@ fun NavGraph(
                 },
                 onAISettingsClick = {
                     navController.navigate(Screen.AISettings.route)
+                },
+                onAIMemoryCenterClick = {
+                    navController.navigate(Screen.AIMemoryCenter.route)
+                },
+                onAISoulConfigClick = {
+                    navController.navigate(Screen.AISoulConfig.route)
                 },
                 onWebDAVSettingsClick = {
                     navController.navigate(Screen.WebDAVSettings.route)
@@ -227,7 +237,10 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onNavigateToMemory = {
-                    navController.navigate(Screen.AIMemoryManagement.route)
+                    navController.navigate(Screen.AIMemoryCenter.route)
+                },
+                onNavigateToSoulConfig = {
+                    navController.navigate(Screen.AISoulConfig.route)
                 }
             )
         }
@@ -252,6 +265,47 @@ fun NavGraph(
 
         composable(Screen.AIMemoryManagement.route) {
             MemoryManagementScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.AIMemoryCenter.route) {
+            MemoryCenterScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToInbox = {
+                    navController.navigate(Screen.AIMemoryInbox.route)
+                },
+                onNavigateToMemoryManagement = {
+                    navController.navigate(Screen.AIMemoryManagement.route)
+                },
+                onNavigateToSelfPortrait = {
+                    navController.navigate(Screen.AISelfPortrait.route)
+                }
+            )
+        }
+
+        composable(Screen.AIMemoryInbox.route) {
+            MemoryInboxScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.AISoulConfig.route) {
+            SoulConfigScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.AISelfPortrait.route) {
+            SelfPortraitScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

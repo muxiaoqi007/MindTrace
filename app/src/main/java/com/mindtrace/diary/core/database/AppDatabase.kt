@@ -7,6 +7,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mindtrace.diary.core.database.converter.Converters
 import com.mindtrace.diary.core.database.dao.AIConversationDao
+import com.mindtrace.diary.core.database.dao.AIMemoryCandidateDao
 import com.mindtrace.diary.core.database.dao.AIMemoryDao
 import com.mindtrace.diary.core.database.dao.AiReviewDao
 import com.mindtrace.diary.core.database.dao.DiaryDao
@@ -14,6 +15,7 @@ import com.mindtrace.diary.core.database.dao.FlashNoteDao
 import com.mindtrace.diary.core.database.dao.MoodDao
 import com.mindtrace.diary.core.database.dao.TodoDao
 import com.mindtrace.diary.core.database.entity.AIConversationEntity
+import com.mindtrace.diary.core.database.entity.AIMemoryCandidateEntity
 import com.mindtrace.diary.core.database.entity.AIMemoryEntity
 import com.mindtrace.diary.core.database.entity.AiReviewEntity
 import com.mindtrace.diary.core.database.entity.DiaryEntity
@@ -29,9 +31,10 @@ import com.mindtrace.diary.core.database.entity.TodoEntity
         MoodEntity::class,
         AIConversationEntity::class,
         AIMemoryEntity::class,
+        AIMemoryCandidateEntity::class,
         AiReviewEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -42,6 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun moodDao(): MoodDao
     abstract fun aiConversationDao(): AIConversationDao
     abstract fun aiMemoryDao(): AIMemoryDao
+    abstract fun aiMemoryCandidateDao(): AIMemoryCandidateDao
     abstract fun aiReviewDao(): AiReviewDao
 
     companion object {
@@ -187,6 +191,24 @@ abstract class AppDatabase : RoomDatabase() {
                 } finally {
                     cursor.close()
                 }
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS ai_memory_candidates (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        category TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        source TEXT,
+                        importance REAL NOT NULL DEFAULT 0.5,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        reviewedAt INTEGER
+                    )
+                """)
             }
         }
     }

@@ -94,11 +94,27 @@ class AIRepositoryImpl @Inject constructor(
         val result = mutableListOf<ChatMessage>()
 
         // 添加系统提示词（根据所选 AI 人格；CUSTOM 时使用用户自定义提示词）
-        val persona = ChatPersona.fromId(settingsDataStore.chatPersonaId.first())
+        val soulConfig = settingsDataStore.soulConfig.first()
+        val persona = ChatPersona.fromId(soulConfig.chatPersonaId)
         var systemPrompt = if (persona == ChatPersona.CUSTOM) {
-            config.systemPrompt
+            soulConfig.customSystemPrompt
         } else {
             persona.systemPrompt
+        }
+
+        val soulContext = buildString {
+            if (soulConfig.userDisplayName.isNotBlank()) {
+                append("- 用户希望被称呼为：${soulConfig.userDisplayName}\n")
+            }
+            if (soulConfig.aiDisplayName.isNotBlank()) {
+                append("- 你的名字是：${soulConfig.aiDisplayName}\n")
+            }
+            if (soulConfig.relationshipNote.isNotBlank()) {
+                append("- 用户希望你这样相处：${soulConfig.relationshipNote}\n")
+            }
+        }.trim()
+        if (soulContext.isNotBlank()) {
+            systemPrompt += "\n\n当前相处配置：\n$soulContext"
         }
 
         if (includeContext) {

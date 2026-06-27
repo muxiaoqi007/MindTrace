@@ -60,6 +60,10 @@ class SettingsDataStore @Inject constructor(
         val MEMORY_LEARNING_ENABLED = booleanPreferencesKey("memory_learning_enabled")
         // 主对话 AI 人格
         val CHAT_PERSONA_ID = stringPreferencesKey("chat_persona_id")
+        // Soul / 用户相处配置
+        val USER_DISPLAY_NAME = stringPreferencesKey("user_display_name")
+        val AI_DISPLAY_NAME = stringPreferencesKey("ai_display_name")
+        val SOUL_RELATIONSHIP_NOTE = stringPreferencesKey("soul_relationship_note")
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data
@@ -308,6 +312,40 @@ class SettingsDataStore @Inject constructor(
             preferences[Keys.CHAT_PERSONA_ID] = id
         }
     }
+
+    val soulConfig: Flow<SoulConfig> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { preferences ->
+            SoulConfig(
+                chatPersonaId = preferences[Keys.CHAT_PERSONA_ID] ?: "warm_companion",
+                userDisplayName = preferences[Keys.USER_DISPLAY_NAME] ?: "",
+                aiDisplayName = preferences[Keys.AI_DISPLAY_NAME] ?: "MindTrace",
+                relationshipNote = preferences[Keys.SOUL_RELATIONSHIP_NOTE] ?: "",
+                customSystemPrompt = preferences[Keys.AI_SYSTEM_PROMPT] ?: AIConfig.DEFAULT_SYSTEM_PROMPT
+            )
+        }
+
+    suspend fun setSoulConfig(config: SoulConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.CHAT_PERSONA_ID] = config.chatPersonaId
+            preferences[Keys.USER_DISPLAY_NAME] = config.userDisplayName
+            preferences[Keys.AI_DISPLAY_NAME] = config.aiDisplayName
+            preferences[Keys.SOUL_RELATIONSHIP_NOTE] = config.relationshipNote
+            preferences[Keys.AI_SYSTEM_PROMPT] = config.customSystemPrompt
+        }
+    }
+
+    suspend fun setUserDisplayName(name: String) {
+        context.dataStore.edit { preferences -> preferences[Keys.USER_DISPLAY_NAME] = name }
+    }
+
+    suspend fun setAiDisplayName(name: String) {
+        context.dataStore.edit { preferences -> preferences[Keys.AI_DISPLAY_NAME] = name }
+    }
+
+    suspend fun setSoulRelationshipNote(note: String) {
+        context.dataStore.edit { preferences -> preferences[Keys.SOUL_RELATIONSHIP_NOTE] = note }
+    }
 }
 
 enum class ThemeMode {
@@ -365,6 +403,14 @@ data class AIConfig(
 - 在用户需要时提供支持，但不过度干预"""
     }
 }
+
+data class SoulConfig(
+    val chatPersonaId: String = "warm_companion",
+    val userDisplayName: String = "",
+    val aiDisplayName: String = "MindTrace",
+    val relationshipNote: String = "",
+    val customSystemPrompt: String = AIConfig.DEFAULT_SYSTEM_PROMPT
+)
 
 /**
  * 深夜回信配置

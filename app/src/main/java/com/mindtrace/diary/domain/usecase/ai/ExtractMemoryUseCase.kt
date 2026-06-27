@@ -6,6 +6,7 @@ import com.mindtrace.diary.core.ai.ChatMessage
 import com.mindtrace.diary.core.datastore.SettingsDataStore
 import com.mindtrace.diary.data.repository.LLMProviderFactory
 import com.mindtrace.diary.domain.model.MemoryCategory
+import com.mindtrace.diary.domain.repository.AIMemoryCandidateRepository
 import com.mindtrace.diary.domain.repository.AIMemoryRepository
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import kotlinx.coroutines.flow.first
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class ExtractMemoryUseCase @Inject constructor(
     private val diaryRepository: DiaryRepository,
     private val aiMemoryRepository: AIMemoryRepository,
+    private val aiMemoryCandidateRepository: AIMemoryCandidateRepository,
     private val settingsDataStore: SettingsDataStore,
     private val llmProviderFactory: LLMProviderFactory
 ) {
@@ -88,18 +90,21 @@ importance 为 0 到 1 的小数，越重要越接近 1。
                 return Result.success(emptyList())
             }
 
-            // 去重：跳过与现有活跃记忆内容相同的条目（归一化后比较）
+            // 去重：跳过与现有活跃记忆或同日记待确认候选内容相同的条目（归一化后比较）
             val existing = aiMemoryRepository.getAllActiveMemories().first()
                 .mapTo(mutableSetOf()) { it.content.trim().lowercase() }
+            val source = "diary:$diaryId"
+            aiMemoryCandidateRepository.getPendingCandidatesBySource(source)
+                .mapTo(existing) { it.content.trim().lowercase() }
 
             val added = mutableListOf<String>()
             for (item in extracted.take(MAX_MEMORIES_PER_DIARY)) {
                 val normalized = item.content.trim().lowercase()
                 if (normalized.isEmpty() || !existing.add(normalized)) continue
-                aiMemoryRepository.addAutoMemory(
+                aiMemoryCandidateRepository.addCandidate(
                     content = item.content.trim(),
                     category = item.category,
-                    source = "diary:$diaryId",
+                    source = source,
                     importance = item.importance
                 )
                 added.add(item.content.trim())
