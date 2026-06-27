@@ -12,6 +12,7 @@ import com.mindtrace.diary.domain.model.ChatPersona
 import com.mindtrace.diary.domain.repository.AIRepository
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.repository.TodoRepository
+import com.mindtrace.diary.domain.usecase.ai.BuildAIContextUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +30,8 @@ class AIRepositoryImpl @Inject constructor(
     private val diaryRepository: DiaryRepository,
     private val todoRepository: TodoRepository,
     private val llmProviderFactory: LLMProviderFactory,
-    private val aiMemoryDao: AIMemoryDao
+    private val aiMemoryDao: AIMemoryDao,
+    private val buildAIContextUseCase: BuildAIContextUseCase
 ) : AIRepository {
 
     private val _conversationHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -118,22 +120,12 @@ class AIRepositoryImpl @Inject constructor(
         }
 
         if (includeContext) {
-            // 添加长期记忆
-            val memorySummary = getMemorySummary()
-            if (memorySummary.isNotBlank()) {
-                systemPrompt += "\n\n$memorySummary"
-            }
-
-            // 添加日记上下文
-            val contextSummary = getDiaryContextSummary()
-            if (contextSummary.isNotBlank()) {
-                systemPrompt += "\n\n$contextSummary"
-            }
-
-            // 添加待办上下文
-            val todoSummary = getTodoContextSummary()
-            if (todoSummary.isNotBlank()) {
-                systemPrompt += "\n\n$todoSummary"
+            val query = messages
+                .filter { it.role == ChatMessage.Role.USER }
+                .joinToString("\n") { it.content }
+            val aiContext = buildAIContextUseCase(query)
+            if (aiContext.isNotBlank()) {
+                systemPrompt += "\n\n$aiContext"
             }
         }
         result.add(ChatMessage(ChatMessage.Role.SYSTEM, systemPrompt))

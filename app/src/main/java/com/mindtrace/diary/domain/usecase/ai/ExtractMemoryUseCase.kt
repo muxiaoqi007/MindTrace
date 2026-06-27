@@ -33,7 +33,7 @@ class ExtractMemoryUseCase @Inject constructor(
         private const val MAX_MEMORIES_PER_DIARY = 5
         private const val MAX_CONTENT_LENGTH = 60
 
-        private const val EXTRACTION_PROMPT = """你是一个善于观察的记忆助手。请从下面这篇日记中，提取「关于用户本人的、长期稳定、有助于日后理解 ta 的信息」。
+        private const val EXTRACTION_PROMPT = """你是一个谨慎、克制的记忆助手。请从下面这篇日记中，提取「关于用户本人的、长期稳定、有助于日后理解 ta 的信息」。
 
 只提取真正值得长期记住的内容，例如：性格特点、稳定的偏好与习惯、重要的个人事实、影响深远的事件、重要的人际关系、长期的目标与愿望。
 不要提取：一次性的琐事、天气、当天的临时情绪波动、泛泛的感慨。
@@ -48,11 +48,15 @@ category 只能取以下之一：
 - GOAL（目标愿望）
 - OTHER（其他）
 
-importance 为 0 到 1 的小数，越重要越接近 1。
-每条 content 用简洁的第三人称陈述（不超过 30 字），就像在为 ta 写备忘。
+字段要求：
+- content：简洁的第三人称陈述（不超过 30 字），就像在为 ta 写备忘。
+- importance：0 到 1 的小数，越重要越接近 1。
+- confidence：0 到 1 的小数，表示你对这条记忆是否稳定、准确的信心。
+- evidence：必须来自原文中的短句或对原文短句的极简摘录，不要编造。
+- reason：说明为什么这条信息值得长期记住。
 
 严格按以下 JSON 格式返回，不要包含任何其他文字：
-{"memories": [{"category": "PREFERENCE", "content": "喜欢在咖啡馆写作", "importance": 0.7}]}
+{"memories": [{"category": "GOAL", "content": "用户想长期坚持学习画画", "importance": 0.7, "confidence": 0.8, "evidence": "我最近决定长期学习画画", "reason": "这是一个明确、可持续的长期目标"}]}
 
 日记内容：
 """
@@ -105,7 +109,10 @@ importance 为 0 到 1 的小数，越重要越接近 1。
                     content = item.content.trim(),
                     category = item.category,
                     source = source,
-                    importance = item.importance
+                    importance = item.importance,
+                    confidence = item.confidence,
+                    evidence = item.evidence,
+                    reason = item.reason
                 )
                 added.add(item.content.trim())
             }
@@ -119,7 +126,10 @@ importance 为 0 到 1 的小数，越重要越接近 1。
     private data class ExtractedMemory(
         val category: MemoryCategory,
         val content: String,
-        val importance: Float
+        val importance: Float,
+        val confidence: Float,
+        val evidence: String?,
+        val reason: String?
     )
 
     private fun parseMemories(raw: String): List<ExtractedMemory> {
@@ -134,7 +144,17 @@ importance 为 0 到 1 的小数，越重要越接近 1。
                 if (text.isEmpty()) return@mapNotNull null
                 val category = MemoryCategory.fromString(o.get("category")?.asString ?: "OTHER")
                 val importance = (o.get("importance")?.asFloat ?: 0.5f).coerceIn(0f, 1f)
-                ExtractedMemory(category, text.take(MAX_CONTENT_LENGTH), importance)
+                val confidence = (o.get("confidence")?.asFloat ?: 0.5f).coerceIn(0f, 1f)
+                val evidence = o.get("evidence")?.asString?.trim()?.takeIf { it.isNotEmpty() }
+                val reason = o.get("reason")?.asString?.trim()?.takeIf { it.isNotEmpty() }
+                ExtractedMemory(
+                    category = category,
+                    content = text.take(MAX_CONTENT_LENGTH),
+                    importance = importance,
+                    confidence = confidence,
+                    evidence = evidence,
+                    reason = reason
+                )
             }
         } catch (e: Exception) {
             emptyList()

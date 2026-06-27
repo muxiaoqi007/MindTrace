@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SelfImprovement
@@ -27,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -58,6 +61,13 @@ fun SelfPortraitScreen(
         uiState.error?.let { error ->
             snackbarHostState.showSnackbar(error)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearMessage()
         }
     }
 
@@ -103,6 +113,8 @@ fun SelfPortraitScreen(
             else -> {
                 SelfPortraitContent(
                     portrait = uiState.portrait!!,
+                    onAccurate = viewModel::markMemoryAccurate,
+                    onInaccurate = viewModel::markMemoryInaccurate,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -111,7 +123,12 @@ fun SelfPortraitScreen(
 }
 
 @Composable
-private fun SelfPortraitContent(portrait: SelfPortrait, modifier: Modifier = Modifier) {
+private fun SelfPortraitContent(
+    portrait: SelfPortrait,
+    onAccurate: (String) -> Unit,
+    onInaccurate: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -138,11 +155,11 @@ private fun SelfPortraitContent(portrait: SelfPortrait, modifier: Modifier = Mod
             }
         }
 
-        memorySection("我可能是这样的人", portrait.personalityMemories)
-        memorySection("我的偏好", portrait.preferenceMemories)
-        memorySection("我的目标", portrait.goalMemories)
-        memorySection("重要关系", portrait.relationshipMemories)
-        memorySection("个人事实", portrait.factMemories)
+        memorySection("我可能是这样的人", portrait.personalityMemories, onAccurate, onInaccurate)
+        memorySection("我的偏好", portrait.preferenceMemories, onAccurate, onInaccurate)
+        memorySection("我的目标", portrait.goalMemories, onAccurate, onInaccurate)
+        memorySection("重要关系", portrait.relationshipMemories, onAccurate, onInaccurate)
+        memorySection("个人事实", portrait.factMemories, onAccurate, onInaccurate)
 
         item {
             Text(
@@ -156,12 +173,18 @@ private fun SelfPortraitContent(portrait: SelfPortrait, modifier: Modifier = Mod
 
 private fun androidx.compose.foundation.lazy.LazyListScope.memorySection(
     title: String,
-    memories: List<AIMemory>
+    memories: List<AIMemory>,
+    onAccurate: (String) -> Unit,
+    onInaccurate: (String) -> Unit
 ) {
     if (memories.isEmpty()) return
     item { SectionTitle(title) }
     items(memories, key = { it.id }) { memory ->
-        MemoryInsightCard(memory = memory)
+        MemoryInsightCard(
+            memory = memory,
+            onAccurate = { onAccurate(memory.id) },
+            onInaccurate = { onInaccurate(memory.id) }
+        )
     }
 }
 
@@ -228,7 +251,11 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun MemoryInsightCard(memory: AIMemory) {
+private fun MemoryInsightCard(
+    memory: AIMemory,
+    onAccurate: () -> Unit,
+    onInaccurate: () -> Unit
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -242,6 +269,19 @@ private fun MemoryInsightCard(memory: AIMemory) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onAccurate, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text("像我")
+                }
+                OutlinedButton(onClick = onInaccurate, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text("不准确")
+                }
+            }
         }
     }
 }

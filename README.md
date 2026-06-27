@@ -1,43 +1,46 @@
 # MindTrace
 
-MindTrace 是一款本地优先的 Android 日记应用，专注于记录日常、闪念、心情和待办，并提供 AI 回顾、记忆提取、WebDAV 同步与数据备份能力。
+[中文说明](README.zh-CN.md)
 
-> 当前项目处于持续开发阶段，功能和数据结构仍可能调整。
+MindTrace is a local-first Android diary app for daily journaling, flash notes, moods, todos, AI reflection, memory extraction, WebDAV sync, and data backup.
 
-## 功能特性
+> The project is under active development. Features and data structures may change.
 
-- **日记记录**
-  - 支持标题、正文、心情、标签、日期等基础信息
-  - 支持块级图文混排编辑，文字和图片可以按内容顺序展示
-  - 支持图片本地压缩与保存
+## Features
 
-- **闪念与待办**
-  - 快速记录灵感、临时想法和待办事项
-  - 可与日记内容形成连续的生活记录
+- **Diary writing**
+  - Title, rich body content, mood, tags, and date metadata
+  - Block-based mixed text-and-image editing
+  - Local image compression and storage
 
-- **心情追踪**
-  - 支持多档心情状态
-  - 可结合日历和历史记录查看情绪变化
+- **Flash notes and todos**
+  - Quickly capture thoughts, ideas, and tasks
+  - Keep lightweight notes connected with daily diary records
 
-- **AI 能力**
-  - 支持 OpenAI Compatible 接口配置
-  - 日记摘要、情感分析、AI 标签
-  - 候选记忆收件箱：AI 提取的新理解需确认后才进入长期记忆
-  - 记忆中心：集中管理候选记忆、长期记忆和自我画像
-  - Soul 设置：配置 AI 人格、称呼、名称和相处方式
-  - 自我画像：基于本地日记统计和已确认长期记忆生成初版画像
-  - 午夜回顾与沉默唤醒
+- **Mood tracking**
+  - Five-level mood system
+  - Calendar, history, and statistics views for emotional trends
 
-- **同步与备份**
-  - WebDAV 同步
-  - 数据导入 / 导出
-  - 图片随数据一起备份与恢复
+- **AI capabilities**
+  - OpenAI-compatible API configuration
+  - Diary summaries, sentiment analysis, and AI tags
+  - Memory inbox: extracted candidate memories include evidence, reasoning, and confidence before becoming long-term memories
+  - Memory center: manage candidate memories, long-term memories, and self portrait
+  - Self portrait feedback: mark insights as "accurate" or "inaccurate"; inaccurate memories are disabled and removed from future portraits and AI context
+  - Context-aware chat: AI prioritizes long-term memories relevant to the current question
+  - Soul settings: configure the AI persona, names, preferred address, and relationship style
+  - Midnight reviews and silence-break reminders
 
-- **安全与隐私**
-  - 数据默认存储在本地
-  - API Key、WebDAV 密码、邮箱密码等通过 Android Keystore 加密后存储
+- **Sync and backup**
+  - WebDAV sync
+  - Data import / export
+  - Image backup and restore for exported diary data
 
-## 技术栈
+- **Security and privacy**
+  - Local-first data storage
+  - API keys, WebDAV passwords, and email passwords are encrypted with Android Keystore
+
+## Tech Stack
 
 - Kotlin
 - Jetpack Compose
@@ -49,44 +52,44 @@ MindTrace 是一款本地优先的 Android 日记应用，专注于记录日常�
 - Coil
 - OkHttp
 - Gson
-- WebDAV（Sardine）
+- WebDAV (Sardine)
 
-## 项目结构
+## Project Structure
 
 ```text
 app/src/main/java/com/mindtrace/diary/
-├── app/                 # 应用入口与全局 ViewModel
-├── core/                # 数据库、同步、安全、AI、工具类
-├── data/                # Repository 实现
-├── di/                  # Hilt 依赖注入模块
-├── domain/              # 领域模型、Repository 接口、UseCase
-└── ui/                  # Compose 页面、组件、导航与主题
+├── app/                 # App entry and global ViewModels
+├── core/                # Database, sync, security, AI, and utilities
+├── data/                # Repository implementations
+├── di/                  # Hilt dependency injection modules
+├── domain/              # Domain models, repository interfaces, and use cases
+└── ui/                  # Compose screens, components, navigation, and theme
 ```
 
-## 开发环境
+## Development Environment
 
-### 基础要求
+### Requirements
 
 - Android Studio / IntelliJ IDEA
 - JDK 17
 - Android SDK
-- Gradle Wrapper（项目已包含）
+- Gradle Wrapper (included)
 
-本项目本地开发使用 Homebrew 安装的 OpenJDK 17：
+This project is developed locally with Homebrew OpenJDK 17:
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 ```
 
-Android SDK 默认配置见 `local.properties`：
+Android SDK is configured locally via `local.properties`:
 
 ```properties
 sdk.dir=/opt/homebrew/share/android-commandlinetools
 ```
 
-> `local.properties` 不应提交到仓库，请按自己的本地环境配置。
+> `local.properties` should not be committed. Configure it according to your local environment.
 
-## 构建
+## Build
 
 ### Debug APK
 
@@ -95,7 +98,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 ./gradlew assembleDebug
 ```
 
-构建产物：
+Output:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
@@ -108,53 +111,55 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 ./gradlew assembleRelease
 ```
 
-构建产物：
+Output:
 
 ```text
 app/build/outputs/apk/release/app-release.apk
 ```
 
-## 安装到设备
+## Install on Device
 
-确保设备已开启 USB 调试，并能被 adb 识别：
+Make sure USB debugging is enabled and the device is visible to adb:
 
 ```bash
 adb devices
 ```
 
-安装 Debug 包：
+Install the debug APK:
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## AI 配置说明
+## AI Configuration
 
-应用内可配置兼容 OpenAI Chat Completions 风格的接口，包括：
+The app supports OpenAI Chat Completions-compatible providers. Configure these in the app:
 
 - Base URL
 - API Key
 - Model
 
-密钥只存储在本机，并通过 Android Keystore 加密。
+API keys are stored locally and encrypted with Android Keystore.
 
-## 数据与隐私
+## Data and Privacy
 
-MindTrace 采用本地优先设计：
+MindTrace is designed as a local-first app:
 
-- 日记、闪念、待办等数据存储在本地 Room 数据库中
-- 图片保存到应用私有目录
-- AI 候选记忆和长期记忆默认保存在本地，候选记忆需用户确认后才会成为长期记忆
-- 自我画像初版基于本地统计和已确认长期记忆生成，不是心理或医学诊断
-- WebDAV 同步需要用户自行配置服务地址和账号
-- AI 功能需要用户自行配置 API 服务
-- 开启 AI 分析、聊天或记忆提取时，相关日记内容/上下文会发送给用户配置的 AI 服务商
+- Diaries, flash notes, todos, AI memories, and candidate memories are stored in the local Room database.
+- Images are saved in the app-private directory.
+- Candidate memories show evidence snippets, AI reasoning, and confidence before users confirm them as long-term memories.
+- The self portrait is generated from local statistics and confirmed long-term memories. It is not a psychological or medical diagnosis.
+- Marking a self portrait insight as inaccurate disables the corresponding long-term memory.
+- AI chat prioritizes long-term memories relevant to the current question instead of injecting all memory indiscriminately.
+- WebDAV sync requires user-provided server credentials.
+- AI features require a user-configured AI provider.
+- When AI analysis, chat, or memory extraction is enabled, relevant diary content or context is sent to the configured AI provider.
 
-> 当前 App 内导出和 WebDAV 同步暂不包含 AI 记忆、候选记忆、AI 会话历史和 AI 回信历史。
+> Current in-app export and WebDAV sync do not include AI memories, candidate memories, AI conversation history, or AI review history.
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request。建议在提交前先运行：
+Issues and pull requests are welcome. Before submitting changes, run:
 
 ```bash
 ./gradlew assembleDebug

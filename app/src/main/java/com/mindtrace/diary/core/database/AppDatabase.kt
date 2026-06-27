@@ -34,7 +34,7 @@ import com.mindtrace.diary.core.database.entity.TodoEntity
         AIMemoryCandidateEntity::class,
         AiReviewEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -209,6 +209,20 @@ abstract class AppDatabase : RoomDatabase() {
                         reviewedAt INTEGER
                     )
                 """)
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE ai_memory_candidates ADD COLUMN evidence TEXT DEFAULT NULL"
+                )
+                database.execSQL(
+                    "ALTER TABLE ai_memory_candidates ADD COLUMN reason TEXT DEFAULT NULL"
+                )
+                database.execSQL(
+                    "ALTER TABLE ai_memory_candidates ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5"
+                )
             }
         }
     }

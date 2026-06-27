@@ -43,7 +43,10 @@ class AIMemoryCandidateRepositoryImpl @Inject constructor(
         content: String,
         category: MemoryCategory,
         source: String?,
-        importance: Float
+        importance: Float,
+        confidence: Float,
+        evidence: String?,
+        reason: String?
     ): AIMemoryCandidate {
         val now = LocalDateTime.now()
         val candidate = AIMemoryCandidate(
@@ -52,6 +55,9 @@ class AIMemoryCandidateRepositoryImpl @Inject constructor(
             content = content,
             source = source,
             importance = importance.coerceIn(0f, 1f),
+            confidence = confidence.coerceIn(0f, 1f),
+            evidence = evidence?.takeIf { it.isNotBlank() },
+            reason = reason?.takeIf { it.isNotBlank() },
             status = MemoryCandidateStatus.PENDING,
             createdAt = now,
             updatedAt = now

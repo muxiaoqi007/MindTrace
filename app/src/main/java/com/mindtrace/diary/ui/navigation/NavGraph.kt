@@ -267,6 +267,9 @@ fun NavGraph(
             MemoryManagementScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onOpenDiarySource = { diaryId ->
+                    navController.navigate(Screen.DiaryDetail.createRoute(diaryId))
                 }
             )
         }
@@ -292,6 +295,9 @@ fun NavGraph(
             MemoryInboxScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onOpenDiarySource = { diaryId ->
+                    navController.navigate(Screen.DiaryDetail.createRoute(diaryId))
                 }
             )
         }

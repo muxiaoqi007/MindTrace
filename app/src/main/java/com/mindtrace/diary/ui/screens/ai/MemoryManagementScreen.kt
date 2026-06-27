@@ -24,6 +24,7 @@ import com.mindtrace.diary.domain.model.MemoryType
 @Composable
 fun MemoryManagementScreen(
     onNavigateBack: () -> Unit,
+    onOpenDiarySource: (String) -> Unit = {},
     viewModel: MemoryManagementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -117,7 +118,8 @@ fun MemoryManagementScreen(
                                 memory = memory,
                                 onEdit = { viewModel.showEditDialog(memory) },
                                 onToggleActive = { viewModel.toggleMemoryActive(memory) },
-                                onDelete = { viewModel.deleteMemory(memory.id) }
+                                onDelete = { viewModel.deleteMemory(memory.id) },
+                                onOpenDiarySource = onOpenDiarySource
                             )
                         }
                     }
@@ -176,7 +178,8 @@ private fun MemoryItem(
     memory: AIMemory,
     onEdit: () -> Unit,
     onToggleActive: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOpenDiarySource: (String) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -238,6 +241,20 @@ private fun MemoryItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            memory.source?.let { source ->
+                Text(
+                    text = when {
+                        source == "user_input" -> "来源：手动添加"
+                        source.startsWith("diary:") -> "来源：日记"
+                        else -> "来源：$source"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -250,6 +267,14 @@ private fun MemoryItem(
                 )
 
                 Row {
+                    if (memory.source?.startsWith("diary:") == true) {
+                        TextButton(
+                            onClick = { onOpenDiarySource(memory.source.removePrefix("diary:")) },
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("查看来源")
+                        }
+                    }
                     if (memory.type == MemoryType.MANUAL) {
                         IconButton(
                             onClick = onEdit,

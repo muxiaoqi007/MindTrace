@@ -35,9 +35,42 @@ Diary Saved
 - LLM 生成复杂 Self Model
 - 记忆版本历史、证据片段、冲突合并
 
+## 第二阶段 MVP：证据化记忆与反馈闭环
+
+第一阶段解决“AI 会把理解放进候选箱，由用户确认”的基础闭环；第二阶段进一步解决“为什么这么理解我”和“如果不准确如何纠正”。
+
+### 已落地能力
+
+- **证据化候选记忆**：候选记忆增加 `evidence`、`reason`、`confidence`，用户可以看到 AI 的判断依据。
+- **编辑后记住**：用户可以在确认前修改候选记忆内容、分类和重要性。
+- **来源追溯**：候选记忆和长期记忆都能跳转回来源日记。
+- **画像反馈**：自我画像中的记忆支持“像我 / 不准确”，不准确会停用对应长期记忆。
+- **相关记忆优先**：`BuildAIContextUseCase` 根据当前用户问题，优先把相关长期记忆注入 AI prompt。
+
+### 数据流
+
+```text
+Diary Saved
+  -> ExtractMemoryUseCase
+  -> LLM 返回 content / evidence / reason / confidence
+  -> AIMemoryCandidateRepository
+  -> Memory Inbox
+  -> 用户编辑/确认
+  -> AIMemoryRepository
+  -> BuildAIContextUseCase 根据当前问题选取相关记忆
+  -> AIRepositoryImpl 注入对话上下文
+```
+
+### 仍然刻意保持简单的部分
+
+- 相关记忆匹配仍是关键词/文本包含，不是 embedding。
+- 自我画像反馈复用长期记忆启停机制，不新增复杂反馈表。
+- 记忆来源目前使用 `source = diary:{id}` 这种轻量格式。
+- 暂不做记忆版本历史和冲突合并。
+
 ---
 
-## 一、市场调研
+
 
 ### 1.1 竞品分析
 

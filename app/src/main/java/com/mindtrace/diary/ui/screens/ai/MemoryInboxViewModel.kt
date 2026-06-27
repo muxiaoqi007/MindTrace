@@ -3,6 +3,8 @@ package com.mindtrace.diary.ui.screens.ai
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mindtrace.diary.domain.repository.AIMemoryCandidateRepository
+import com.mindtrace.diary.domain.model.AIMemoryCandidate
+import com.mindtrace.diary.domain.model.MemoryCategory
 import com.mindtrace.diary.domain.usecase.ai.ApproveMemoryCandidateUseCase
 import com.mindtrace.diary.domain.usecase.ai.RejectMemoryCandidateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,6 +64,34 @@ class MemoryInboxViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update { it.copy(error = e.message ?: "拒绝记忆失败") }
                 }
+            _uiState.update { it.copy(isProcessing = false) }
+        }
+    }
+
+    fun showEditDialog(candidate: AIMemoryCandidate) {
+        _uiState.update { it.copy(editingCandidate = candidate) }
+    }
+
+    fun hideEditDialog() {
+        _uiState.update { it.copy(editingCandidate = null) }
+    }
+
+    fun updateAndApprove(candidate: AIMemoryCandidate, content: String, category: MemoryCategory, importance: Float) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            try {
+                val updated = candidate.copy(
+                    content = content.trim(),
+                    category = category,
+                    importance = importance.coerceIn(0f, 1f)
+                )
+                candidateRepository.updateCandidate(updated)
+                approveMemoryCandidateUseCase(candidate.id)
+                    .onFailure { e -> throw e }
+                _uiState.update { it.copy(editingCandidate = null) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "编辑并确认记忆失败") }
+            }
             _uiState.update { it.copy(isProcessing = false) }
         }
     }
