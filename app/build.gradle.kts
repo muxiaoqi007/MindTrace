@@ -13,8 +13,8 @@ android {
         applicationId = "com.mindtrace.diary"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 6
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -101,7 +101,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // WebDAV (Sardine)
-    implementation("com.github.thegrizzlylabs:sardine-android:0.8")
+    implementation("com.github.thegrizzlylabs:sardine-android:0.8") {
+        exclude(group = "xpp3", module = "xpp3")
+    }
 
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
