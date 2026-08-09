@@ -237,7 +237,7 @@ fun WebDAVSettingsScreen(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "数据变更时自动同步到云端",
+                        text = "连接网络时每小时自动同步一次",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

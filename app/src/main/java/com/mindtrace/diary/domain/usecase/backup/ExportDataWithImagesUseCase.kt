@@ -43,9 +43,7 @@ class ExportDataWithImagesUseCase @Inject constructor(
             val todos = todoDao.getAllTodosOnce()
 
             // 收集所有图片路径
-            val allImagePaths = mutableSetOf<String>()
-            diaries.forEach { allImagePaths.addAll(it.images) }
-            flashNotes.forEach { allImagePaths.addAll(it.images) }
+            val allImagePaths = BackupImagePathMapper.collectImagePaths(diaries, flashNotes)
 
             // 创建路径映射：原始路径 -> 归档路径
             val imageMapping = mutableMapOf<String, String>()
@@ -61,10 +59,10 @@ class ExportDataWithImagesUseCase @Inject constructor(
 
             // 更新实体中的路径为归档路径
             val exportDiaries = diaries.map { diary ->
-                diary.copy(images = diary.images.map { p -> imageMapping[p] ?: p })
+                BackupImagePathMapper.remapDiary(diary, imageMapping)
             }
             val exportFlashNotes = flashNotes.map { note ->
-                note.copy(images = note.images.map { p -> imageMapping[p] ?: p })
+                BackupImagePathMapper.remapFlashNote(note, imageMapping)
             }
 
             val exportData = ExportData(

@@ -128,7 +128,7 @@ fun AIMemoryCandidate.toEntity(): AIMemoryCandidateEntity {
 fun com.mindtrace.diary.core.database.entity.AiReviewEntity.toDomain(): com.mindtrace.diary.domain.model.AiReview {
     return com.mindtrace.diary.domain.model.AiReview(
         id = id,
-        date = java.time.LocalDate.ofInstant(Instant.ofEpochMilli(date), ZoneId.systemDefault()),
+        date = Instant.ofEpochMilli(date).atZone(ZoneId.systemDefault()).toLocalDate(),
         content = content,
         diaryIds = try {
             com.google.gson.Gson().fromJson(diaryIds, Array<String>::class.java).toList()

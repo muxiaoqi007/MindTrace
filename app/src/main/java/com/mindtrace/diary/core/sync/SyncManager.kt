@@ -1,7 +1,9 @@
 package com.mindtrace.diary.core.sync
 
+import androidx.room.withTransaction
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.mindtrace.diary.core.database.AppDatabase
 import com.mindtrace.diary.core.database.dao.DiaryDao
 import com.mindtrace.diary.core.database.dao.FlashNoteDao
 import com.mindtrace.diary.core.database.dao.TodoDao
@@ -12,12 +14,15 @@ import com.mindtrace.diary.core.datastore.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.lang.reflect.Type
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SyncManager @Inject constructor(
     private val webDavClient: WebDavClient,
+    private val database: AppDatabase,
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
     private val todoDao: TodoDao,
@@ -28,196 +33,154 @@ class SyncManager @Inject constructor(
     suspend fun sync(): SyncResult = withContext(Dispatchers.IO) {
         try {
             val config = settingsDataStore.webDavConfig.first()
-            if (!config.isConfigured) {
-                return@withContext SyncResult.NotConfigured
-            }
+            if (!config.isConfigured) return@withContext SyncResult.NotConfigured
 
-            // Ensure sync directory exists
-            if (!webDavClient.ensureDirectory(config.path)) {
-                return@withContext SyncResult.Error("Failed to create sync directory")
-            }
+            webDavClient.ensureDirectory(config.path).getOrThrow()
 
-            val lastSyncTime = settingsDataStore.lastSyncTime.first() ?: 0L
-            val currentTime = System.currentTimeMillis()
+            val localDiaries = diaryDao.getAllDiariesForSync()
+            val localFlashNotes = flashNoteDao.getAllFlashNotesForSync()
+            val localTodos = todoDao.getAllTodosForSync()
 
-            // Upload local changes
-            val uploadedCount = uploadLocalChanges(lastSyncTime)
+            val remoteDiaries = downloadSnapshot<DiaryEntity>(DIARIES_PATH, DIARY_LIST_TYPE).records
+            val remoteFlashNotes = downloadSnapshot<FlashNoteEntity>(FLASH_NOTES_PATH, FLASH_NOTE_LIST_TYPE).records
+            val remoteTodos = downloadSnapshot<TodoEntity>(TODOS_PATH, TODO_LIST_TYPE).records
 
-            // Download remote changes
-            val downloadedCount = downloadRemoteChanges(lastSyncTime)
-
-            // Update last sync time
-            settingsDataStore.setLastSyncTime(currentTime)
-
-            // Update sync timestamps for all items
-            updateSyncTimestamps(currentTime)
-
-            SyncResult.Success(
-                uploadedCount = uploadedCount,
-                downloadedCount = downloadedCount,
-                syncTime = currentTime
+            val mergedDiaries = SyncMergePolicy.merge(
+                localDiaries,
+                remoteDiaries,
+                DiaryEntity::id,
+                DiaryEntity::updatedAt,
+                DiaryEntity::isDeleted
             )
+            val mergedFlashNotes = SyncMergePolicy.merge(
+                localFlashNotes,
+                remoteFlashNotes,
+                FlashNoteEntity::id,
+                FlashNoteEntity::updatedAt,
+                FlashNoteEntity::isDeleted
+            )
+            val mergedTodos = SyncMergePolicy.merge(
+                localTodos,
+                remoteTodos,
+                TodoEntity::id,
+                TodoEntity::updatedAt,
+                TodoEntity::isDeleted
+            )
+
+            val uploadedCount = countUnsynced(localDiaries) +
+                countUnsynced(localFlashNotes) +
+                countUnsynced(localTodos)
+            val downloadedCount = countChanged(localDiaries, mergedDiaries, DiaryEntity::id) +
+                countChanged(localFlashNotes, mergedFlashNotes, FlashNoteEntity::id) +
+                countChanged(localTodos, mergedTodos, TodoEntity::id)
+
+            // Always upload complete snapshots. Uploading only the local delta would
+            // replace the remote file and silently discard all other records.
+            webDavClient.uploadFile(DIARIES_PATH, gson.toJson(mergedDiaries).toByteArray()).getOrThrow()
+            webDavClient.uploadFile(FLASH_NOTES_PATH, gson.toJson(mergedFlashNotes).toByteArray()).getOrThrow()
+            webDavClient.uploadFile(TODOS_PATH, gson.toJson(mergedTodos).toByteArray()).getOrThrow()
+
+            val syncTime = System.currentTimeMillis()
+            database.withTransaction {
+                if (mergedDiaries.isNotEmpty()) diaryDao.insertDiaries(mergedDiaries)
+                if (mergedFlashNotes.isNotEmpty()) flashNoteDao.insertFlashNotes(mergedFlashNotes)
+                if (mergedTodos.isNotEmpty()) todoDao.insertTodos(mergedTodos)
+                mergedDiaries.forEach { diaryDao.updateSyncTime(it.id, syncTime) }
+                mergedFlashNotes.forEach { flashNoteDao.updateSyncTime(it.id, syncTime) }
+                mergedTodos.forEach { todoDao.updateSyncTime(it.id, syncTime) }
+            }
+            settingsDataStore.setLastSyncTime(syncTime)
+
+            SyncResult.Success(uploadedCount, downloadedCount, syncTime)
         } catch (e: Exception) {
-            e.printStackTrace()
-            SyncResult.Error(e.message ?: "Unknown error", e)
+            SyncResult.Error(e.message ?: "同步失败", e)
         }
     }
 
-    private suspend fun uploadLocalChanges(lastSyncTime: Long): Int {
-        var count = 0
+    suspend fun testConnection(): Boolean = webDavClient.testConnection()
 
-        // Upload diaries
-        val unsyncedDiaries = diaryDao.getUnsyncedDiaries()
-        if (unsyncedDiaries.isNotEmpty()) {
-            val json = gson.toJson(unsyncedDiaries)
-            if (webDavClient.uploadFile("/diaries.json", json.toByteArray())) {
-                count += unsyncedDiaries.size
-            }
-        }
-
-        // Upload flash notes
-        val unsyncedFlashNotes = flashNoteDao.getUnsyncedFlashNotes()
-        if (unsyncedFlashNotes.isNotEmpty()) {
-            val json = gson.toJson(unsyncedFlashNotes)
-            if (webDavClient.uploadFile("/flash_notes.json", json.toByteArray())) {
-                count += unsyncedFlashNotes.size
-            }
-        }
-
-        // Upload todos
-        val unsyncedTodos = todoDao.getUnsyncedTodos()
-        if (unsyncedTodos.isNotEmpty()) {
-            val json = gson.toJson(unsyncedTodos)
-            if (webDavClient.uploadFile("/todos.json", json.toByteArray())) {
-                count += unsyncedTodos.size
-            }
-        }
-
-        return count
-    }
-
-    private suspend fun downloadRemoteChanges(lastSyncTime: Long): Int {
-        var count = 0
-
-        // Download diaries
-        webDavClient.downloadFile("/diaries.json")?.let { data ->
-            val json = String(data)
-            val type = object : TypeToken<List<DiaryEntity>>() {}.type
-            val remoteDiaries: List<DiaryEntity> = gson.fromJson(json, type) ?: emptyList()
-
-            remoteDiaries.forEach { remoteDiary ->
-                val localDiary = diaryDao.getDiaryById(remoteDiary.id)
-                if (localDiary == null || remoteDiary.updatedAt > localDiary.updatedAt) {
-                    diaryDao.insertDiary(remoteDiary)
-                    count++
-                }
-            }
-        }
-
-        // Download flash notes
-        webDavClient.downloadFile("/flash_notes.json")?.let { data ->
-            val json = String(data)
-            val type = object : TypeToken<List<FlashNoteEntity>>() {}.type
-            val remoteFlashNotes: List<FlashNoteEntity> = gson.fromJson(json, type) ?: emptyList()
-
-            remoteFlashNotes.forEach { remoteNote ->
-                val localNote = flashNoteDao.getFlashNoteById(remoteNote.id)
-                if (localNote == null || remoteNote.updatedAt > localNote.updatedAt) {
-                    flashNoteDao.insertFlashNote(remoteNote)
-                    count++
-                }
-            }
-        }
-
-        // Download todos
-        webDavClient.downloadFile("/todos.json")?.let { data ->
-            val json = String(data)
-            val type = object : TypeToken<List<TodoEntity>>() {}.type
-            val remoteTodos: List<TodoEntity> = gson.fromJson(json, type) ?: emptyList()
-
-            remoteTodos.forEach { remoteTodo ->
-                val localTodo = todoDao.getTodoById(remoteTodo.id)
-                if (localTodo == null || remoteTodo.updatedAt > localTodo.updatedAt) {
-                    todoDao.insertTodo(remoteTodo)
-                    count++
-                }
-            }
-        }
-
-        return count
-    }
-
-    private suspend fun updateSyncTimestamps(syncTime: Long) {
-        diaryDao.getUnsyncedDiaries().forEach { diary ->
-            diaryDao.updateSyncTime(diary.id, syncTime)
-        }
-        flashNoteDao.getUnsyncedFlashNotes().forEach { note ->
-            flashNoteDao.updateSyncTime(note.id, syncTime)
-        }
-        todoDao.getUnsyncedTodos().forEach { todo ->
-            todoDao.updateSyncTime(todo.id, syncTime)
-        }
-    }
-
-    suspend fun testConnection(): Boolean {
-        return webDavClient.testConnection()
-    }
-
-    /**
-     * 从云端恢复数据（覆盖本地）
-     */
+    /** Downloads and validates every snapshot before replacing any local row. */
     suspend fun restoreFromCloud(): RestoreResult = withContext(Dispatchers.IO) {
         try {
             val config = settingsDataStore.webDavConfig.first()
-            if (!config.isConfigured) {
-                return@withContext RestoreResult.NotConfigured
+            if (!config.isConfigured) return@withContext RestoreResult.NotConfigured
+
+            val diaries = downloadSnapshot<DiaryEntity>(DIARIES_PATH, DIARY_LIST_TYPE)
+            val flashNotes = downloadSnapshot<FlashNoteEntity>(FLASH_NOTES_PATH, FLASH_NOTE_LIST_TYPE)
+            val todos = downloadSnapshot<TodoEntity>(TODOS_PATH, TODO_LIST_TYPE)
+            if (!diaries.found && !flashNotes.found && !todos.found) {
+                return@withContext RestoreResult.Error("云端没有可恢复的 MindTrace 数据")
             }
 
-            var totalCount = 0
+            validateUniqueIds(diaries.records, DiaryEntity::id, "日记")
+            validateUniqueIds(flashNotes.records, FlashNoteEntity::id, "闪念")
+            validateUniqueIds(todos.records, TodoEntity::id, "待办")
 
-            // 清空本地数据
-            diaryDao.deleteAllDiaries()
-            flashNoteDao.deleteAllFlashNotes()
-            todoDao.deleteAllTodos()
-
-            // 下载并恢复日记
-            webDavClient.downloadFile("/diaries.json")?.let { data ->
-                val json = String(data)
-                val type = object : TypeToken<List<DiaryEntity>>() {}.type
-                val remoteDiaries: List<DiaryEntity> = gson.fromJson(json, type) ?: emptyList()
-                if (remoteDiaries.isNotEmpty()) {
-                    diaryDao.insertDiaries(remoteDiaries)
-                    totalCount += remoteDiaries.size
-                }
+            val restoreTime = System.currentTimeMillis()
+            database.withTransaction {
+                diaryDao.deleteAllDiaries()
+                flashNoteDao.deleteAllFlashNotes()
+                todoDao.deleteAllTodos()
+                if (diaries.records.isNotEmpty()) diaryDao.insertDiaries(diaries.records)
+                if (flashNotes.records.isNotEmpty()) flashNoteDao.insertFlashNotes(flashNotes.records)
+                if (todos.records.isNotEmpty()) todoDao.insertTodos(todos.records)
+                diaries.records.forEach { diaryDao.updateSyncTime(it.id, restoreTime) }
+                flashNotes.records.forEach { flashNoteDao.updateSyncTime(it.id, restoreTime) }
+                todos.records.forEach { todoDao.updateSyncTime(it.id, restoreTime) }
             }
-
-            // 下载并恢复闪念
-            webDavClient.downloadFile("/flash_notes.json")?.let { data ->
-                val json = String(data)
-                val type = object : TypeToken<List<FlashNoteEntity>>() {}.type
-                val remoteFlashNotes: List<FlashNoteEntity> = gson.fromJson(json, type) ?: emptyList()
-                if (remoteFlashNotes.isNotEmpty()) {
-                    flashNoteDao.insertFlashNotes(remoteFlashNotes)
-                    totalCount += remoteFlashNotes.size
-                }
-            }
-
-            // 下载并恢复待办
-            webDavClient.downloadFile("/todos.json")?.let { data ->
-                val json = String(data)
-                val type = object : TypeToken<List<TodoEntity>>() {}.type
-                val remoteTodos: List<TodoEntity> = gson.fromJson(json, type) ?: emptyList()
-                if (remoteTodos.isNotEmpty()) {
-                    todoDao.insertTodos(remoteTodos)
-                    totalCount += remoteTodos.size
-                }
-            }
-
-            settingsDataStore.setLastSyncTime(System.currentTimeMillis())
-            RestoreResult.Success(totalCount)
+            settingsDataStore.setLastSyncTime(restoreTime)
+            RestoreResult.Success(diaries.records.size + flashNotes.records.size + todos.records.size)
         } catch (e: Exception) {
-            e.printStackTrace()
-            RestoreResult.Error(e.message ?: "Unknown error")
+            RestoreResult.Error(e.message ?: "恢复失败")
         }
+    }
+
+    private suspend fun <T> downloadSnapshot(path: String, type: Type): RemoteSnapshot<T> {
+        return when (val result = webDavClient.downloadFile(path)) {
+            is RemoteFileResult.Found -> {
+                val records = try {
+                    gson.fromJson<List<T>>(String(result.data, Charsets.UTF_8), type) ?: emptyList()
+                } catch (e: Exception) {
+                    throw IOException("云端文件 $path 格式错误", e)
+                }
+                RemoteSnapshot(found = true, records = records)
+            }
+            RemoteFileResult.NotFound -> RemoteSnapshot(found = false, records = emptyList())
+            is RemoteFileResult.Failure -> throw IOException(
+                "下载云端文件 $path 失败：${result.message}",
+                result.cause
+            )
+        }
+    }
+
+    private fun <T> countChanged(local: List<T>, merged: List<T>, id: (T) -> String): Int {
+        val localById = local.associateBy(id)
+        return merged.count { record -> localById[id(record)] != record }
+    }
+
+    private fun countUnsynced(records: List<DiaryEntity>): Int =
+        records.count { it.syncedAt == null || it.updatedAt > it.syncedAt }
+
+    @JvmName("countUnsyncedFlashNotes")
+    private fun countUnsynced(records: List<FlashNoteEntity>): Int =
+        records.count { it.syncedAt == null || it.updatedAt > it.syncedAt }
+
+    @JvmName("countUnsyncedTodos")
+    private fun countUnsynced(records: List<TodoEntity>): Int =
+        records.count { it.syncedAt == null || it.updatedAt > it.syncedAt }
+
+    private fun <T> validateUniqueIds(records: List<T>, id: (T) -> String, label: String) {
+        require(records.map(id).distinct().size == records.size) { "云端${label}数据包含重复 ID" }
+    }
+
+    private data class RemoteSnapshot<T>(val found: Boolean, val records: List<T>)
+
+    private companion object {
+        const val DIARIES_PATH = "/diaries.json"
+        const val FLASH_NOTES_PATH = "/flash_notes.json"
+        const val TODOS_PATH = "/todos.json"
+        val DIARY_LIST_TYPE: Type = object : TypeToken<List<DiaryEntity>>() {}.type
+        val FLASH_NOTE_LIST_TYPE: Type = object : TypeToken<List<FlashNoteEntity>>() {}.type
+        val TODO_LIST_TYPE: Type = object : TypeToken<List<TodoEntity>>() {}.type
     }
 }

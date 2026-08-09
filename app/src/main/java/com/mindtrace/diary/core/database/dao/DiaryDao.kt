@@ -12,6 +12,9 @@ interface DiaryDao {
     @Query("SELECT * FROM diaries WHERE isDeleted = 0 ORDER BY createdAt DESC")
     suspend fun getAllDiariesOnce(): List<DiaryEntity>
 
+    @Query("SELECT * FROM diaries ORDER BY createdAt DESC")
+    suspend fun getAllDiariesForSync(): List<DiaryEntity>
+
     @Query("SELECT * FROM diaries WHERE isDeleted = 0 ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
     fun getDiariesPaged(limit: Int, offset: Int): Flow<List<DiaryEntity>>
 

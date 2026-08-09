@@ -1,6 +1,7 @@
 package com.mindtrace.diary.core.notification
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -74,6 +75,7 @@ class NotificationHelper @Inject constructor(
     /**
      * 显示深夜回信通知
      */
+    @SuppressLint("MissingPermission")
     fun showMidnightReviewNotification(review: AiReview) {
         if (!hasNotificationPermission()) {
             return
@@ -102,15 +104,20 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(context).notify(
-            NOTIFICATION_ID_MIDNIGHT_REVIEW,
-            notification
-        )
+        try {
+            NotificationManagerCompat.from(context).notify(
+                NOTIFICATION_ID_MIDNIGHT_REVIEW,
+                notification
+            )
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+        }
     }
 
     /**
      * 显示沉默唤醒通知
      */
+    @SuppressLint("MissingPermission")
     fun showSilenceBreakNotification(message: String) {
         if (!hasNotificationPermission()) {
             return
@@ -137,10 +144,14 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(context).notify(
-            NOTIFICATION_ID_SILENCE_BREAK,
-            notification
-        )
+        try {
+            NotificationManagerCompat.from(context).notify(
+                NOTIFICATION_ID_SILENCE_BREAK,
+                notification
+            )
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+        }
     }
 
     /**

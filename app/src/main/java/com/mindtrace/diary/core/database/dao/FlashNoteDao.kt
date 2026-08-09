@@ -12,6 +12,9 @@ interface FlashNoteDao {
     @Query("SELECT * FROM flash_notes WHERE isDeleted = 0 ORDER BY createdAt DESC")
     suspend fun getAllFlashNotesOnce(): List<FlashNoteEntity>
 
+    @Query("SELECT * FROM flash_notes ORDER BY createdAt DESC")
+    suspend fun getAllFlashNotesForSync(): List<FlashNoteEntity>
+
     @Query("SELECT * FROM flash_notes WHERE isDeleted = 0 ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
     fun getFlashNotesPaged(limit: Int, offset: Int): Flow<List<FlashNoteEntity>>
 

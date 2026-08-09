@@ -1,5 +1,6 @@
 package com.mindtrace.diary.ui.screens.webdav
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mindtrace.diary.core.datastore.SettingsDataStore
@@ -7,7 +8,9 @@ import com.mindtrace.diary.core.datastore.WebDavConfig
 import com.mindtrace.diary.core.sync.RestoreResult
 import com.mindtrace.diary.core.sync.SyncManager
 import com.mindtrace.diary.core.sync.SyncResult
+import com.mindtrace.diary.core.sync.SyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,6 +31,7 @@ data class WebDAVSettingsUiState(
 
 @HiltViewModel
 class WebDAVSettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val syncManager: SyncManager
 ) : ViewModel() {
@@ -86,12 +90,21 @@ class WebDAVSettingsViewModel @Inject constructor(
     fun saveConfig() {
         viewModelScope.launch {
             settingsDataStore.setWebDavConfig(_uiState.value.config)
+            if (_uiState.value.autoSyncEnabled) {
+                SyncWorker.schedulePeriodicSync(context)
+            }
         }
     }
 
     fun setAutoSyncEnabled(enabled: Boolean) {
         viewModelScope.launch {
+            settingsDataStore.setWebDavConfig(_uiState.value.config)
             settingsDataStore.setAutoSyncEnabled(enabled)
+            if (enabled) {
+                SyncWorker.schedulePeriodicSync(context)
+            } else {
+                SyncWorker.cancelSync(context)
+            }
         }
     }
 
@@ -107,6 +120,7 @@ class WebDAVSettingsViewModel @Inject constructor(
     fun syncNow() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncResult = null) }
+            settingsDataStore.setWebDavConfig(_uiState.value.config)
             val result = syncManager.sync()
             _uiState.update { it.copy(isSyncing = false, syncResult = result) }
         }
@@ -123,6 +137,7 @@ class WebDAVSettingsViewModel @Inject constructor(
     fun restoreFromCloud() {
         viewModelScope.launch {
             _uiState.update { it.copy(showRestoreConfirmDialog = false, isRestoring = true) }
+            settingsDataStore.setWebDavConfig(_uiState.value.config)
             val result = syncManager.restoreFromCloud()
             _uiState.update { it.copy(isRestoring = false, restoreResult = result) }
         }

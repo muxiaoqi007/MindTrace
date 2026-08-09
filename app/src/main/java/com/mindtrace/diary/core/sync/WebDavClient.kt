@@ -48,52 +48,80 @@ class WebDavClient @Inject constructor(
         }
     }
 
-    suspend fun ensureDirectory(path: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun ensureDirectory(path: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val config = settingsDataStore.webDavConfig.first()
-            val client = getSardine() ?: return@withContext false
-            val fullPath = "${config.url.trimEnd('/')}${path}"
+            val client = getSardine()
+                ?: return@withContext Result.failure(IllegalStateException("WebDAV 未配置"))
+            val fullPath = buildRemoteUrl(config, path)
 
             if (!client.exists(fullPath)) {
                 client.createDirectory(fullPath)
             }
-            true
+            Result.success(Unit)
         } catch (e: Exception) {
-            e.printStackTrace()
-            false
+            Result.failure(e)
         }
     }
 
-    suspend fun uploadFile(remotePath: String, data: ByteArray, contentType: String = "application/json"): Boolean =
+    suspend fun uploadFile(remotePath: String, data: ByteArray, contentType: String = "application/json"): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 val config = settingsDataStore.webDavConfig.first()
-                val client = getSardine() ?: return@withContext false
-                val fullPath = "${config.url.trimEnd('/')}${config.path}$remotePath"
+                val client = getSardine()
+                    ?: return@withContext Result.failure(IllegalStateException("WebDAV 未配置"))
+                val fullPath = buildRemoteUrl(config, config.path, remotePath)
 
                 client.put(fullPath, data, contentType)
-                true
+                Result.success(Unit)
             } catch (e: Exception) {
-                e.printStackTrace()
-                false
+                Result.failure(e)
             }
         }
 
-    suspend fun downloadFile(remotePath: String): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun downloadFile(remotePath: String): RemoteFileResult = withContext(Dispatchers.IO) {
         try {
             val config = settingsDataStore.webDavConfig.first()
-            val client = getSardine() ?: return@withContext null
-            val fullPath = "${config.url.trimEnd('/')}${config.path}$remotePath"
+            val client = getSardine() ?: return@withContext RemoteFileResult.Failure(
+                "WebDAV 未配置",
+                IllegalStateException("WebDAV 未配置")
+            )
+            val fullPath = buildRemoteUrl(config, config.path, remotePath)
 
-            if (!client.exists(fullPath)) return@withContext null
+            if (!client.exists(fullPath)) return@withContext RemoteFileResult.NotFound
 
             client.get(fullPath).use { inputStream ->
-                inputStream.readBytes()
+                RemoteFileResult.Found(inputStream.readBytesLimited(MAX_REMOTE_FILE_BYTES))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            null
+            RemoteFileResult.Failure(e.message ?: "下载失败", e)
         }
+    }
+
+    private fun buildRemoteUrl(config: WebDavConfig, vararg paths: String): String {
+        val suffix = paths
+            .flatMap { path -> path.split('/') }
+            .filter { segment -> segment.isNotBlank() }
+            .joinToString("/")
+        return if (suffix.isBlank()) config.url.trimEnd('/') else "${config.url.trimEnd('/')}/$suffix"
+    }
+
+    private fun InputStream.readBytesLimited(maxBytes: Long): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) break
+            total += read
+            require(total <= maxBytes) { "远端同步文件过大" }
+            output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
+    }
+
+    private companion object {
+        const val MAX_REMOTE_FILE_BYTES = 50L * 1024 * 1024
     }
 
     suspend fun listFiles(remotePath: String): List<String> = withContext(Dispatchers.IO) {
