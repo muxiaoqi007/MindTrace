@@ -3,6 +3,7 @@ package com.mindtrace.diary.core.ai
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.mindtrace.diary.core.datastore.AIConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +12,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
-import okio.BufferedSource
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -53,27 +53,27 @@ class OpenAICompatibleProvider(
                 .post(gson.toJson(requestBody).toRequestBody(jsonMediaType))
                 .build()
 
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(AIProviderException.fromHttpStatus(response.code))
+                }
 
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: "Unknown error"
-                return@withContext Result.failure(
-                    IOException("API error: ${response.code} - $errorBody")
-                )
+                val responseBody = response.body?.string()
+                    ?: return@withContext Result.failure(AIProviderException("AI 服务返回了空响应"))
+                val chatResponse = gson.fromJson(responseBody, ChatCompletionResponse::class.java)
+                val choice = chatResponse.choices.firstOrNull()
+                    ?: return@withContext Result.failure(AIProviderException("AI 服务没有返回可用内容"))
+                val content = choice.message.content
+                if (content.isBlank()) {
+                    return@withContext Result.failure(AIProviderException("AI 服务返回了空内容"))
+                }
+
+                Result.success(ChatResponse(content = content, finishReason = choice.finishReason))
             }
-
-            val responseBody = response.body?.string()
-                ?: return@withContext Result.failure(IOException("Empty response"))
-
-            val chatResponse = gson.fromJson(responseBody, ChatCompletionResponse::class.java)
-            val content = chatResponse.choices.firstOrNull()?.message?.content ?: ""
-
-            Result.success(ChatResponse(
-                content = content,
-                finishReason = chatResponse.choices.firstOrNull()?.finishReason
-            ))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(AIProviderException.fromFailure(e))
         }
     }
 
@@ -99,48 +99,50 @@ class OpenAICompatibleProvider(
 
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                close(e)
+                if (call.isCanceled()) {
+                    close()
+                } else {
+                    close(AIProviderException.fromFailure(e))
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
-                if (!response.isSuccessful) {
-                    close(IOException("API error: ${response.code}"))
-                    return
-                }
-
-                try {
-                    val source: BufferedSource = response.body?.source()
-                        ?: run {
-                            close(IOException("Empty response body"))
-                            return
-                        }
-
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line() ?: continue
-
-                        if (line.startsWith("data: ")) {
-                            val data = line.removePrefix("data: ").trim()
-
-                            if (data == "[DONE]") {
-                                trySend(StreamChunk("", isFinished = true))
-                                break
-                            }
-
-                            try {
-                                val chunk = gson.fromJson(data, ChatCompletionChunk::class.java)
-                                val content = chunk.choices.firstOrNull()?.delta?.content ?: ""
-                                if (content.isNotEmpty()) {
-                                    trySend(StreamChunk(content))
-                                }
-                            } catch (e: Exception) {
-                                // 忽略解析错误，继续处理下一行
-                            }
-                        }
+                response.use { safeResponse ->
+                    if (!safeResponse.isSuccessful) {
+                        close(AIProviderException.fromHttpStatus(safeResponse.code))
+                        return
                     }
 
-                    close()
-                } catch (e: Exception) {
-                    close(e)
+                    try {
+                        val source = safeResponse.body?.source()
+                            ?: run {
+                                close(AIProviderException("AI 服务返回了空响应"))
+                                return
+                            }
+                        var terminalSent = false
+
+                        while (!source.exhausted() && !terminalSent) {
+                            val line = source.readUtf8Line() ?: continue
+                            for (chunk in OpenAIStreamDecoder.decodeLine(line)) {
+                                if (chunk.isFinished) {
+                                    if (!terminalSent) {
+                                        trySend(chunk)
+                                        terminalSent = true
+                                    }
+                                } else {
+                                    trySend(chunk)
+                                }
+                            }
+                        }
+
+                        // Some compatible providers close the stream without [DONE].
+                        if (!terminalSent) {
+                            trySend(StreamChunk(content = "", isFinished = true))
+                        }
+                        close()
+                    } catch (e: Exception) {
+                        close(AIProviderException.fromFailure(e))
+                    }
                 }
             }
         })
@@ -162,7 +164,6 @@ class OpenAICompatibleProvider(
         }
     }
 }
-
 // ========== API DTOs ==========
 
 private data class ChatRequest(
@@ -198,22 +199,5 @@ private data class ChatCompletionResponse(
         val completionTokens: Int,
         @SerializedName("total_tokens")
         val totalTokens: Int
-    )
-}
-
-private data class ChatCompletionChunk(
-    val id: String?,
-    val choices: List<ChunkChoice>
-) {
-    data class ChunkChoice(
-        val index: Int,
-        val delta: Delta,
-        @SerializedName("finish_reason")
-        val finishReason: String?
-    )
-
-    data class Delta(
-        val role: String?,
-        val content: String?
     )
 }

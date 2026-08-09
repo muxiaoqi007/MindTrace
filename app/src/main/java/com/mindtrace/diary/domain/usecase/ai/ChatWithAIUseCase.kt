@@ -4,8 +4,6 @@ import com.mindtrace.diary.core.ai.ChatMessage
 import com.mindtrace.diary.core.ai.StreamChunk
 import com.mindtrace.diary.domain.repository.AIRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 
 /**
@@ -26,22 +24,6 @@ class ChatWithAIUseCase @Inject constructor(
         includeContext: Boolean = true
     ): Flow<StreamChunk> {
         val message = ChatMessage(ChatMessage.Role.USER, userMessage)
-        val responseBuilder = StringBuilder()
-
         return aiRepository.chatStream(listOf(message), includeContext)
-            .onEach { chunk ->
-                if (!chunk.isFinished) {
-                    responseBuilder.append(chunk.content)
-                }
-            }
-            .onCompletion { error ->
-                if (error == null && responseBuilder.isNotEmpty()) {
-                    // 保存用户消息和 AI 响应到历史
-                    aiRepository.addToHistory(message)
-                    aiRepository.addToHistory(
-                        ChatMessage(ChatMessage.Role.ASSISTANT, responseBuilder.toString())
-                    )
-                }
-            }
     }
 }

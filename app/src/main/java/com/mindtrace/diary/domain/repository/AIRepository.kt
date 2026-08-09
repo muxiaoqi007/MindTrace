@@ -31,23 +31,4 @@ interface AIRepository {
      */
     suspend fun testConnection(): Boolean
 
-    /**
-     * 获取对话历史
-     */
-    fun getConversationHistory(): Flow<List<ChatMessage>>
-
-    /**
-     * 添加消息到对话历史
-     */
-    suspend fun addToHistory(message: ChatMessage)
-
-    /**
-     * 清空对话历史
-     */
-    suspend fun clearHistory()
-
-    /**
-     * 获取用户日记上下文摘要
-     */
-    suspend fun getDiaryContextSummary(): String
 }

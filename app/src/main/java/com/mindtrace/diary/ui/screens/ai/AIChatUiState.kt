@@ -16,6 +16,7 @@ data class AIChatUiState(
     val error: String? = null,
     val isAIConfigured: Boolean = false,
     val isAIEnabled: Boolean = false,
+    val includePersonalContext: Boolean = true,
     val currentConversation: AIConversation? = null,
     val unreadReviews: List<AiReview> = emptyList(),
     val showReviewPanel: Boolean = false,

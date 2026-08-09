@@ -12,7 +12,14 @@ import com.mindtrace.diary.domain.repository.AIConversationRepository
 import com.mindtrace.diary.domain.repository.AIRepository
 import com.mindtrace.diary.domain.repository.AiReviewRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -23,63 +30,27 @@ class AIChatViewModel @Inject constructor(
     private val conversationRepository: AIConversationRepository,
     private val aiReviewRepository: AiReviewRepository,
     private val settingsDataStore: SettingsDataStore,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(AIChatUiState())
     val uiState: StateFlow<AIChatUiState> = _uiState.asStateFlow()
 
-    // 当前会话 ID
-    private var currentConversationId: String? = savedStateHandle.get<String>("conversationId")
+    private var currentConversationId: String? = savedStateHandle[CONVERSATION_ID_KEY]
+    private var sendJob: Job? = null
+    private var conversationLoadJob: Job? = null
 
     init {
-        // 监听 AI 配置状态
         viewModelScope.launch {
             settingsDataStore.aiConfig.collect { config ->
                 _uiState.update {
-                    it.copy(
-                        isAIConfigured = config.isConfigured,
-                        isAIEnabled = config.enabled
-                    )
+                    it.copy(isAIConfigured = config.isConfigured, isAIEnabled = config.enabled)
                 }
             }
         }
-
-        // 加载会话
-        viewModelScope.launch {
-            loadConversation()
-        }
-
-        // 加载未读回信
-        loadUnreadReviews()
-    }
-
-    private fun loadUnreadReviews() {
+        currentConversationId?.let(::beginLoadConversation)
         viewModelScope.launch {
             aiReviewRepository.getUnreadReviews().collect { reviews ->
                 _uiState.update { it.copy(unreadReviews = reviews) }
-            }
-        }
-    }
-
-    private suspend fun loadConversation() {
-        val conversationId = currentConversationId
-        if (conversationId != null) {
-            // 加载已有会话
-            conversationRepository.getConversationByIdFlow(conversationId).collect { conversation ->
-                if (conversation != null) {
-                    _uiState.update {
-                        it.copy(
-                            currentConversation = conversation,
-                            messages = conversation.messages.map { msg ->
-                                ChatMessage(
-                                    role = ChatMessage.Role.valueOf(msg.role.name),
-                                    content = msg.content
-                                )
-                            }
-                        )
-                    }
-                }
             }
         }
     }
@@ -88,193 +59,221 @@ class AIChatViewModel @Inject constructor(
         _uiState.update { it.copy(inputText = text) }
     }
 
+    fun setIncludePersonalContext(include: Boolean) {
+        if (_uiState.value.isStreaming || _uiState.value.isLoading) return
+        _uiState.update { it.copy(includePersonalContext = include) }
+    }
+
     fun sendMessage() {
-        val message = _uiState.value.inputText.trim()
-        if (message.isBlank()) return
+        val state = _uiState.value
+        val messageText = state.inputText.trim()
+        if (messageText.isBlank() || state.isLoading || state.isStreaming || sendJob?.isActive == true) return
 
         _uiState.update {
-            it.copy(
-                inputText = "",
-                isStreaming = true,
-                streamingContent = "",
-                error = null
-            )
+            it.copy(inputText = "", isStreaming = true, streamingContent = "", error = null)
         }
 
-        viewModelScope.launch {
+        sendJob = viewModelScope.launch {
+            val responseBuilder = StringBuilder()
+            var responseFinalized = false
             try {
-                // 确保有会话
                 val conversationId = ensureConversation()
-
-                // 添加用户消息到会话
                 val userMessage = AIMessage(
                     role = AIMessage.Role.USER,
-                    content = message,
+                    content = messageText,
                     timestamp = LocalDateTime.now()
                 )
                 conversationRepository.addMessage(conversationId, userMessage)
 
-                // 更新 UI 显示用户消息
-                val userChatMessage = ChatMessage(ChatMessage.Role.USER, message)
+                val userChatMessage = ChatMessage(ChatMessage.Role.USER, messageText)
+                val requestMessages = _uiState.value.messages + userChatMessage
+                val updatedConversation = conversationRepository.getConversationById(conversationId)
                 _uiState.update {
-                    it.copy(messages = it.messages + userChatMessage)
+                    it.copy(messages = requestMessages, currentConversation = updatedConversation ?: it.currentConversation)
                 }
 
-                // 发送到 AI 并获取流式响应
-                val responseBuilder = StringBuilder()
-                aiRepository.chatStream(listOf(userChatMessage), includeContext = true)
-                    .collect { chunk ->
-                        if (chunk.isFinished) {
-                            // 保存 AI 响应到会话
-                            if (responseBuilder.isNotEmpty()) {
-                                val assistantMessage = AIMessage(
-                                    role = AIMessage.Role.ASSISTANT,
-                                    content = responseBuilder.toString(),
-                                    timestamp = LocalDateTime.now()
-                                )
-                                conversationRepository.addMessage(conversationId, assistantMessage)
-
-                                // 添加到 AI Repository 历史
-                                aiRepository.addToHistory(userChatMessage)
-                                aiRepository.addToHistory(
-                                    ChatMessage(ChatMessage.Role.ASSISTANT, responseBuilder.toString())
-                                )
-
-                                // 更新 UI
-                                _uiState.update {
-                                    it.copy(
-                                        messages = it.messages + ChatMessage(
-                                            ChatMessage.Role.ASSISTANT,
-                                            responseBuilder.toString()
-                                        ),
-                                        isStreaming = false,
-                                        streamingContent = ""
-                                    )
-                                }
-                            } else {
-                                _uiState.update {
-                                    it.copy(
-                                        isStreaming = false,
-                                        streamingContent = ""
-                                    )
-                                }
-                            }
-                        } else {
-                            responseBuilder.append(chunk.content)
-                            _uiState.update {
-                                it.copy(streamingContent = responseBuilder.toString())
-                            }
-                        }
+                aiRepository.chatStream(
+                    messages = requestMessages,
+                    includeContext = state.includePersonalContext
+                ).collect { chunk ->
+                    if (responseFinalized) return@collect
+                    if (chunk.isFinished) {
+                        responseFinalized = true
+                        finalizeAssistantResponse(conversationId, responseBuilder.toString())
+                    } else {
+                        responseBuilder.append(chunk.content)
+                        _uiState.update { it.copy(streamingContent = responseBuilder.toString()) }
                     }
+                }
+
+                // Defensive fallback for providers that complete their Flow without a marker.
+                if (!responseFinalized) {
+                    responseFinalized = true
+                    finalizeAssistantResponse(conversationId, responseBuilder.toString())
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isStreaming = false,
-                        streamingContent = "",
-                        error = e.message ?: "发送失败"
-                    )
+                val partialContent = responseBuilder.toString()
+                if (partialContent.isNotBlank()) {
+                    currentConversationId?.let { conversationId ->
+                        finalizeAssistantResponse(
+                            conversationId = conversationId,
+                            content = partialContent,
+                            warning = "连接中断，已保留生成到一半的内容"
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isStreaming = false,
+                            streamingContent = "",
+                            error = e.message ?: "发送失败"
+                        )
+                    }
+                }
+            } finally {
+                val finishingJob = currentCoroutineContext()[Job]
+                if (sendJob === finishingJob) {
+                    sendJob = null
+                    _uiState.update { stateAfter ->
+                        if (stateAfter.isStreaming) stateAfter.copy(isStreaming = false) else stateAfter
+                    }
                 }
             }
+        }
+    }
+
+    private suspend fun finalizeAssistantResponse(
+        conversationId: String,
+        content: String,
+        warning: String? = null
+    ) {
+        if (content.isBlank()) {
+            _uiState.update {
+                it.copy(isStreaming = false, streamingContent = "", error = "AI 没有返回内容，请重试")
+            }
+            return
+        }
+
+        val assistantMessage = AIMessage(
+            role = AIMessage.Role.ASSISTANT,
+            content = content,
+            timestamp = LocalDateTime.now()
+        )
+        conversationRepository.addMessage(conversationId, assistantMessage)
+        val updatedConversation = conversationRepository.getConversationById(conversationId)
+        _uiState.update {
+            it.copy(
+                messages = it.messages + ChatMessage(ChatMessage.Role.ASSISTANT, content),
+                currentConversation = updatedConversation ?: it.currentConversation,
+                isStreaming = false,
+                streamingContent = "",
+                error = warning
+            )
         }
     }
 
     private suspend fun ensureConversation(): String {
         currentConversationId?.let { return it }
-
-        // 创建新会话
         val conversation = conversationRepository.createConversation()
-        currentConversationId = conversation.id
+        setCurrentConversationId(conversation.id)
         _uiState.update { it.copy(currentConversation = conversation) }
         return conversation.id
     }
 
     fun clearHistory() {
+        cancelActiveGeneration()
+        cancelConversationLoad()
+        val conversationIdToDelete = currentConversationId
+        setCurrentConversationId(null)
+        _uiState.update {
+            it.copy(messages = emptyList(), currentConversation = null, streamingContent = "", error = null)
+        }
         viewModelScope.launch {
-            // 清空当前会话
-            currentConversationId?.let { id ->
-                conversationRepository.deleteConversation(id)
-            }
-            currentConversationId = null
-            aiRepository.clearHistory()
-            _uiState.update {
-                it.copy(
-                    messages = emptyList(),
-                    currentConversation = null
-                )
-            }
+            conversationIdToDelete?.let { conversationRepository.deleteConversation(it) }
         }
     }
 
     fun startNewConversation() {
-        viewModelScope.launch {
-            currentConversationId = null
-            aiRepository.clearHistory()
-            _uiState.update {
-                it.copy(
-                    messages = emptyList(),
-                    currentConversation = null
-                )
-            }
+        cancelActiveGeneration()
+        cancelConversationLoad()
+        setCurrentConversationId(null)
+        _uiState.update {
+            it.copy(messages = emptyList(), currentConversation = null, streamingContent = "", error = null)
         }
     }
 
     fun loadConversation(conversationId: String) {
-        viewModelScope.launch {
-            currentConversationId = conversationId
-            aiRepository.clearHistory()
+        cancelActiveGeneration()
+        beginLoadConversation(conversationId)
+    }
 
-            val conversation = conversationRepository.getConversationById(conversationId)
-            if (conversation != null) {
-                // 恢复对话历史到 AI Repository
-                conversation.messages.forEach { msg ->
-                    aiRepository.addToHistory(
-                        ChatMessage(
-                            role = ChatMessage.Role.valueOf(msg.role.name),
-                            content = msg.content
-                        )
-                    )
-                }
-
-                _uiState.update {
-                    it.copy(
-                        currentConversation = conversation,
-                        messages = conversation.messages.map { msg ->
-                            ChatMessage(
-                                role = ChatMessage.Role.valueOf(msg.role.name),
-                                content = msg.content
-                            )
-                        }
-                    )
+    private fun beginLoadConversation(conversationId: String) {
+        cancelConversationLoad()
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        conversationLoadJob = viewModelScope.launch {
+            try {
+                loadConversationState(conversationId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "加载对话失败") }
+            } finally {
+                val finishingJob = currentCoroutineContext()[Job]
+                if (conversationLoadJob === finishingJob) {
+                    conversationLoadJob = null
+                    _uiState.update { it.copy(isLoading = false) }
                 }
             }
         }
     }
 
-    // 回信相关方法
+    private suspend fun loadConversationState(conversationId: String) {
+        val conversation = conversationRepository.getConversationById(conversationId)
+        if (conversation == null) {
+            if (currentConversationId == conversationId) setCurrentConversationId(null)
+            _uiState.update { it.copy(messages = emptyList(), currentConversation = null, error = "对话不存在或已删除") }
+            return
+        }
+        setCurrentConversationId(conversationId)
+        _uiState.update {
+            it.copy(currentConversation = conversation, messages = conversation.messages.toChatMessages())
+        }
+    }
+
+    private fun setCurrentConversationId(conversationId: String?) {
+        currentConversationId = conversationId
+        savedStateHandle[CONVERSATION_ID_KEY] = conversationId
+    }
+
+    private fun cancelActiveGeneration() {
+        sendJob?.cancel()
+        sendJob = null
+        _uiState.update { it.copy(isStreaming = false, streamingContent = "") }
+    }
+
+    private fun cancelConversationLoad() {
+        conversationLoadJob?.cancel()
+        conversationLoadJob = null
+        _uiState.update { it.copy(isLoading = false) }
+    }
+
+    private fun List<AIMessage>.toChatMessages(): List<ChatMessage> = map { message ->
+        ChatMessage(role = ChatMessage.Role.valueOf(message.role.name), content = message.content)
+    }
+
     fun toggleReviewPanel() {
         _uiState.update { it.copy(showReviewPanel = !it.showReviewPanel) }
     }
 
     fun selectReview(review: AiReview) {
-        _uiState.update {
-            it.copy(
-                selectedReview = review,
-                replyText = review.userReply ?: ""
-            )
-        }
-        // 标记为已读
-        viewModelScope.launch {
-            aiReviewRepository.markAsRead(review.id)
-        }
+        _uiState.update { it.copy(selectedReview = review, replyText = review.userReply ?: "") }
+        viewModelScope.launch { aiReviewRepository.markAsRead(review.id) }
     }
 
     fun dismissReview() {
-        _uiState.update {
-            it.copy(
-                selectedReview = null,
-                replyText = ""
-            )
-        }
+        _uiState.update { it.copy(selectedReview = null, replyText = "") }
     }
 
     fun updateReplyText(text: String) {
@@ -288,16 +287,15 @@ class AIChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             aiReviewRepository.saveUserReply(review.id, reply)
-            _uiState.update {
-                it.copy(
-                    selectedReview = null,
-                    replyText = ""
-                )
-            }
+            _uiState.update { it.copy(selectedReview = null, replyText = "") }
         }
     }
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    private companion object {
+        const val CONVERSATION_ID_KEY = "conversationId"
     }
 }

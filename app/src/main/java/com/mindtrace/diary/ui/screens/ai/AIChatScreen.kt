@@ -53,9 +53,12 @@ fun AIChatScreen(
     // 自动滚动到底部
     LaunchedEffect(uiState.messages.size, uiState.streamingContent) {
         if (uiState.messages.isNotEmpty() || uiState.streamingContent.isNotEmpty()) {
-            listState.animateScrollToItem(
-                maxOf(0, uiState.messages.size + if (uiState.isStreaming) 1 else 0)
-            )
+            val lastItemIndex = if (uiState.isStreaming) {
+                uiState.messages.size
+            } else {
+                (uiState.messages.size - 1).coerceAtLeast(0)
+            }
+            listState.animateScrollToItem(lastItemIndex)
         }
     }
 
@@ -171,7 +174,7 @@ fun AIChatScreen(
                         .weight(1f)
                 ) {
                     // 欢迎消息
-                    if (uiState.messages.isEmpty() && !uiState.isStreaming) {
+                    if (uiState.messages.isEmpty() && !uiState.isStreaming && !uiState.isLoading) {
                         item {
                             WelcomeMessage()
                         }
@@ -189,8 +192,7 @@ fun AIChatScreen(
                                 message = ChatMessage(
                                     ChatMessage.Role.ASSISTANT,
                                     uiState.streamingContent
-                                ),
-                                isStreaming = true
+                                )
                             )
                         }
                     }
@@ -208,6 +210,23 @@ fun AIChatScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "思考中...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    if (uiState.isLoading) {
+                        item {
+                            Row(modifier = Modifier.padding(start = 8.dp)) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "正在加载对话...",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -249,12 +268,18 @@ fun AIChatScreen(
                     }
                 }
 
+                PersonalContextControl(
+                    includePersonalContext = uiState.includePersonalContext,
+                    enabled = !uiState.isStreaming && !uiState.isLoading,
+                    onChange = viewModel::setIncludePersonalContext
+                )
+
                 // 输入框
                 ChatInputBar(
                     value = uiState.inputText,
                     onValueChange = viewModel::updateInputText,
                     onSend = viewModel::sendMessage,
-                    enabled = !uiState.isStreaming,
+                    enabled = !uiState.isStreaming && !uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -269,6 +294,34 @@ fun AIChatScreen(
             onReplyTextChange = viewModel::updateReplyText,
             onSubmitReply = viewModel::submitReply,
             onDismiss = viewModel::dismissReview
+        )
+    }
+}
+
+@Composable
+private fun PersonalContextControl(
+    includePersonalContext: Boolean,
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        FilterChip(
+            selected = includePersonalContext,
+            onClick = { onChange(true) },
+            enabled = enabled,
+            label = { Text("使用个人上下文") }
+        )
+        FilterChip(
+            selected = !includePersonalContext,
+            onClick = { onChange(false) },
+            enabled = enabled,
+            label = { Text("仅当前对话") }
         )
     }
 }
@@ -301,8 +354,7 @@ private fun WelcomeMessage() {
 
 @Composable
 private fun ChatMessageItem(
-    message: ChatMessage,
-    isStreaming: Boolean = false
+    message: ChatMessage
 ) {
     val isUser = message.role == ChatMessage.Role.USER
 
