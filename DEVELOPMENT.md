@@ -2,6 +2,31 @@
 
 ## 版本历史
 
+### v1.7.0
+**个性化套件与首页「今日洞察」改版**
+
+#### 核心功能
+- **首页改版** - 问候头部 → 今日洞察卡（`GenerateDailyInsightUseCase`，按天缓存，问题可经 seed 带入 AIChat）→ 此刻灵感时段推荐 → 时间线；11 个功能完整列表移入「全部功能」BottomSheet
+- **自我画像叙事** - 「AI 眼中的你」LLM 叙事画像（`GenerateSelfNarrativeUseCase`，24h 缓存）
+- **回顾仪式（11 个新功能）** - 每日小票、记忆漫步、今日素材篮、生活切面、时光胶囊（加密 + AI 预测 + 到期通知）、每周生活杂志、人生故事线、我的词典、一秒人生（Media3 月度剪辑）、地图足迹、打印归档
+- **心情图标包** - 5 套可切换心情图标（`ProvideMoodIconPack` 全局注入）
+- **日记增强** - 支持经纬度；单篇可排除 AI 分析（`excludeFromAI`）与回顾（`excludeFromResurfacing`）
+- **个性化数据同步** - WebDAV 同步与导出/导入纳入生活切面、时光胶囊、故事线、词典、每日素材（`PersonalizationBackupDataSource` + `PersonalizationSyncPolicy`，ExportData v3）
+- **界面焕新** - 全新启动图标（渐变丝带）；设置页重构为分组卡片（外观 / AI 伙伴 / 数据 / 关于），去除重复控件，版本号改为运行时读取
+
+#### 数据库迁移
+- 版本 9 → 16：新增 `life_facets`、`facet_check_ins`、`time_capsules`、`storylines`、`storyline_sources`、`lexicon_entries`、`lexicon_evidence`、`daily_media_picks` 表；`diaries`/`flash_notes` 新增 `excludeFromAI`、`excludeFromResurfacing`；`diaries` 新增 `latitude`、`longitude`
+
+#### 修复
+- **启动闪退** - `Screen.bottomNavItems` 在密封类伴生对象中急切求值，首次访问任一 `Screen` 子对象时会捕获到未完成初始化的 `INSTANCE`（null），`BottomNavBar` 遍历即 NPE；改为 `by lazy` 惰性求值
+
+#### 已知限制
+- AI 记忆、候选记忆、AI 会话和 AI 回信仍不包含在 App 内导出与 WebDAV 同步中
+- 地图足迹依赖日记记录的经纬度，历史日记无该数据
+- 一秒人生月度剪辑依赖设备 Media3 能力
+
+---
+
 ### v1.6.0
 **证据化记忆与反馈闭环**
 
