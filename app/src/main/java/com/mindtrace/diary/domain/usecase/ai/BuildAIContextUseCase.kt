@@ -5,6 +5,7 @@ import com.mindtrace.diary.domain.model.Priority
 import com.mindtrace.diary.domain.repository.AIMemoryRepository
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.repository.TodoRepository
+import com.mindtrace.diary.domain.repository.LexiconRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -14,13 +15,17 @@ import javax.inject.Inject
 class BuildAIContextUseCase @Inject constructor(
     private val memoryRepository: AIMemoryRepository,
     private val diaryRepository: DiaryRepository,
-    private val todoRepository: TodoRepository
+    private val todoRepository: TodoRepository,
+    private val lexiconRepository: LexiconRepository
 ) {
     suspend operator fun invoke(query: String): String {
         val parts = mutableListOf<String>()
 
         val memorySummary = buildRelevantMemorySummary(query)
         if (memorySummary.isNotBlank()) parts.add(memorySummary)
+
+        val lexiconSummary = buildLexiconSummary(query)
+        if (lexiconSummary.isNotBlank()) parts.add(lexiconSummary)
 
         val diarySummary = buildDiaryContextSummary()
         if (diarySummary.isNotBlank()) parts.add(diarySummary)
@@ -29,6 +34,16 @@ class BuildAIContextUseCase @Inject constructor(
         if (todoSummary.isNotBlank()) parts.add(todoSummary)
 
         return parts.joinToString("\n\n")
+    }
+
+    private suspend fun buildLexiconSummary(query: String): String {
+        val confirmed = lexiconRepository.observeConfirmed().first()
+        if (confirmed.isEmpty()) return ""
+        val selected = confirmed.filter { entry ->
+            query.contains(entry.term, ignoreCase = true) || entry.displayMeaning.contains(query, ignoreCase = true)
+        }.ifEmpty { confirmed.take(8) }.take(12)
+        return "用户已确认的个人词典（用户修正优先）：\n" +
+            selected.joinToString("\n") { "【${it.type.label}】${it.term}：${it.displayMeaning}" }
     }
 
     private suspend fun buildRelevantMemorySummary(query: String): String {
@@ -69,7 +84,9 @@ class BuildAIContextUseCase @Inject constructor(
 
     private suspend fun buildDiaryContextSummary(): String {
         return try {
-            val recentDiaries = diaryRepository.getDiariesPaged(5, 0).first()
+            val recentDiaries = diaryRepository.getDiariesPaged(20, 0).first()
+                .filterNot { it.excludeFromAI }
+                .take(5)
             if (recentDiaries.isEmpty()) return ""
 
             val today = LocalDate.now()

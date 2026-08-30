@@ -14,6 +14,11 @@ import com.mindtrace.diary.core.database.dao.DiaryDao
 import com.mindtrace.diary.core.database.dao.FlashNoteDao
 import com.mindtrace.diary.core.database.dao.MoodDao
 import com.mindtrace.diary.core.database.dao.TodoDao
+import com.mindtrace.diary.core.database.dao.LifeFacetDao
+import com.mindtrace.diary.core.database.dao.TimeCapsuleDao
+import com.mindtrace.diary.core.database.dao.StorylineDao
+import com.mindtrace.diary.core.database.dao.LexiconDao
+import com.mindtrace.diary.core.database.dao.DailyMediaPickDao
 import com.mindtrace.diary.core.database.entity.AIConversationEntity
 import com.mindtrace.diary.core.database.entity.AIMemoryCandidateEntity
 import com.mindtrace.diary.core.database.entity.AIMemoryEntity
@@ -22,6 +27,14 @@ import com.mindtrace.diary.core.database.entity.DiaryEntity
 import com.mindtrace.diary.core.database.entity.FlashNoteEntity
 import com.mindtrace.diary.core.database.entity.MoodEntity
 import com.mindtrace.diary.core.database.entity.TodoEntity
+import com.mindtrace.diary.core.database.entity.LifeFacetEntity
+import com.mindtrace.diary.core.database.entity.FacetCheckInEntity
+import com.mindtrace.diary.core.database.entity.TimeCapsuleEntity
+import com.mindtrace.diary.core.database.entity.StorylineEntity
+import com.mindtrace.diary.core.database.entity.StorylineSourceEntity
+import com.mindtrace.diary.core.database.entity.LexiconEntryEntity
+import com.mindtrace.diary.core.database.entity.LexiconEvidenceEntity
+import com.mindtrace.diary.core.database.entity.DailyMediaPickEntity
 
 @Database(
     entities = [
@@ -32,9 +45,17 @@ import com.mindtrace.diary.core.database.entity.TodoEntity
         AIConversationEntity::class,
         AIMemoryEntity::class,
         AIMemoryCandidateEntity::class,
-        AiReviewEntity::class
+        AiReviewEntity::class,
+        LifeFacetEntity::class,
+        FacetCheckInEntity::class,
+        TimeCapsuleEntity::class,
+        StorylineEntity::class,
+        StorylineSourceEntity::class,
+        LexiconEntryEntity::class,
+        LexiconEvidenceEntity::class,
+        DailyMediaPickEntity::class
     ],
-    version = 9,
+    version = 16,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,6 +68,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aiMemoryDao(): AIMemoryDao
     abstract fun aiMemoryCandidateDao(): AIMemoryCandidateDao
     abstract fun aiReviewDao(): AiReviewDao
+    abstract fun lifeFacetDao(): LifeFacetDao
+    abstract fun timeCapsuleDao(): TimeCapsuleDao
+    abstract fun storylineDao(): StorylineDao
+    abstract fun lexiconDao(): LexiconDao
+    abstract fun dailyMediaPickDao(): DailyMediaPickDao
 
     companion object {
         const val DATABASE_NAME = "mindtrace_db"
@@ -223,6 +249,126 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE ai_memory_candidates ADD COLUMN confidence REAL NOT NULL DEFAULT 0.5"
                 )
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE diaries ADD COLUMN excludeFromAI INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE diaries ADD COLUMN excludeFromResurfacing INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE flash_notes ADD COLUMN excludeFromAI INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE flash_notes ADD COLUMN excludeFromResurfacing INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS life_facets (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        icon TEXT NOT NULL,
+                        color INTEGER NOT NULL,
+                        options TEXT NOT NULL,
+                        isArchived INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS facet_check_ins (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        facetId TEXT NOT NULL,
+                        option TEXT NOT NULL,
+                        date INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )"""
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_facet_check_ins_facetId_date ON facet_check_ins (facetId, date)"
+                )
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS time_capsules (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        encryptedMessage TEXT NOT NULL,
+                        encryptedPrediction TEXT NOT NULL,
+                        encryptedQuestion TEXT NOT NULL,
+                        mediaUris TEXT NOT NULL,
+                        unlockAt INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        openedAt INTEGER
+                    )"""
+                )
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""CREATE TABLE IF NOT EXISTS storylines (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    normalizedName TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_storylines_normalizedName ON storylines (normalizedName)")
+                database.execSQL("""CREATE TABLE IF NOT EXISTS storyline_sources (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    storylineId TEXT NOT NULL,
+                    diaryId TEXT NOT NULL,
+                    date INTEGER NOT NULL,
+                    excerpt TEXT NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_storyline_sources_storylineId_diaryId ON storyline_sources (storylineId, diaryId)")
+            }
+        }
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""CREATE TABLE IF NOT EXISTS lexicon_entries (
+                    id TEXT NOT NULL PRIMARY KEY, term TEXT NOT NULL, normalizedTerm TEXT NOT NULL,
+                    type TEXT NOT NULL, generatedMeaning TEXT NOT NULL, correctedMeaning TEXT,
+                    status TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_lexicon_entries_type_normalizedTerm ON lexicon_entries (type, normalizedTerm)")
+                database.execSQL("""CREATE TABLE IF NOT EXISTS lexicon_evidence (
+                    id TEXT NOT NULL PRIMARY KEY, entryId TEXT NOT NULL, diaryId TEXT NOT NULL,
+                    date INTEGER NOT NULL, excerpt TEXT NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_lexicon_evidence_entryId_diaryId ON lexicon_evidence (entryId, diaryId)")
+            }
+        }
+
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""CREATE TABLE IF NOT EXISTS daily_media_picks (
+                    id TEXT NOT NULL PRIMARY KEY, date INTEGER NOT NULL, uri TEXT NOT NULL,
+                    type TEXT NOT NULL, createdAt INTEGER NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_daily_media_picks_date ON daily_media_picks (date)")
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE diaries ADD COLUMN latitude REAL DEFAULT NULL")
+                database.execSQL("ALTER TABLE diaries ADD COLUMN longitude REAL DEFAULT NULL")
             }
         }
     }

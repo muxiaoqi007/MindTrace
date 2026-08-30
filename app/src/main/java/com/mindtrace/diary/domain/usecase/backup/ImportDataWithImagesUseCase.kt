@@ -28,7 +28,8 @@ class ImportDataWithImagesUseCase @Inject constructor(
     private val database: AppDatabase,
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
-    private val todoDao: TodoDao
+    private val todoDao: TodoDao,
+    private val personalization: PersonalizationBackupDataSource
 ) {
     private val gson: Gson = GsonBuilder().create()
 
@@ -117,6 +118,7 @@ class ImportDataWithImagesUseCase @Inject constructor(
                         todoDao.insertTodos(data.todos)
                         todoCount = data.todos.size
                     }
+                    personalization.restore(data)
                 }
 
                 Result.success(
@@ -172,7 +174,7 @@ class ImportDataWithImagesUseCase @Inject constructor(
         const val MAX_DATA_BYTES = 25L * 1024 * 1024
         const val MAX_IMAGE_BYTES = 50L * 1024 * 1024
         const val MAX_TOTAL_IMAGE_BYTES = 500L * 1024 * 1024
-        val SUPPORTED_VERSIONS = 1..2
+        val SUPPORTED_VERSIONS = 1..3
     }
 }
 

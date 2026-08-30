@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,22 +21,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.mindtrace.diary.R
 import com.mindtrace.diary.core.datastore.ThemeMode
 import com.mindtrace.diary.domain.model.MoodIconPacks
 import com.mindtrace.diary.domain.model.MoodLevel
+import com.mindtrace.diary.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onTagsClick: () -> Unit = {},
     onAISettingsClick: () -> Unit = {},
-    onAIMemoryCenterClick: () -> Unit = {},
-    onAISoulConfigClick: () -> Unit = {},
     onWebDAVSettingsClick: () -> Unit = {},
     onMidnightReviewHistoryClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -106,86 +109,54 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .padding(vertical = Spacing.sm)
         ) {
-            // Theme settings
-            SettingsSection(title = "外观设置") {
+            // 通知权限横幅：缺失时置顶提示（全局性设置，放在最前）
+            if (!uiState.hasNotificationPermission) {
+                NotificationPermissionCard(
+                    onRequestPermission = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)
+                )
+            }
+
+            SettingsGroup(title = "外观") {
                 ThemeSelector(
                     selectedMode = uiState.themeMode,
                     onModeSelected = viewModel::setThemeMode
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 心情图标包选择
-                MoodIconPackSelector(
+                InsetDivider()
+                MoodIconPackRow(
                     selectedPackId = uiState.moodIconPackId,
                     onPackSelected = viewModel::setMoodIconPack
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // AI Settings
-            SettingsSection(title = "AI 伙伴") {
+            SettingsGroup(title = "AI 伙伴") {
                 ListItem(
                     headlineContent = { Text("AI 设置") },
-                    supportingContent = { Text("配置 AI 服务和基础开关") },
+                    supportingContent = {
+                        Text(if (uiState.aiConfigured) "已连接 · 配置模型、人格与记忆" else "未配置，点此开始")
+                    },
                     leadingContent = {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     },
+                    trailingContent = { Chevron() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onAISettingsClick() }
                 )
-
-                HorizontalDivider()
-
-                ListItem(
-                    headlineContent = { Text("记忆中心") },
-                    supportingContent = { Text("确认候选记忆、管理长期记忆和查看自我画像") },
-                    leadingContent = {
-                        Icon(Icons.Default.Psychology, contentDescription = null)
-                    },
-                    trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onAIMemoryCenterClick() }
+                InsetDivider()
+                DiaryAnalysisSettings(
+                    enabled = uiState.diaryAnalysisEnabled,
+                    aiConfigured = uiState.aiConfigured,
+                    onEnabledChange = viewModel::setDiaryAnalysisEnabled
                 )
-
-                HorizontalDivider()
-
-                ListItem(
-                    headlineContent = { Text("Soul 设置") },
-                    supportingContent = { Text("配置 AI 人格、称呼和相处方式") },
-                    leadingContent = {
-                        Icon(Icons.Default.SelfImprovement, contentDescription = null)
-                    },
-                    trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onAISoulConfigClick() }
-                )
-
-                HorizontalDivider()
-
-                // 通知权限提示
-                if (!uiState.hasNotificationPermission) {
-                    NotificationPermissionCard(
-                        onRequestPermission = {
-                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            }
-                            context.startActivity(intent)
-                        }
-                    )
-                    HorizontalDivider()
-                }
-
-                // 深夜回信设置
+                InsetDivider()
                 MidnightReviewSettings(
                     config = uiState.midnightReviewConfig,
                     aiConfigured = uiState.aiConfigured,
@@ -195,10 +166,7 @@ fun SettingsScreen(
                     onHistoryClick = onMidnightReviewHistoryClick,
                     onTestNow = viewModel::testMidnightReview
                 )
-
-                HorizontalDivider()
-
-                // 沉默唤醒设置
+                InsetDivider()
                 SilenceBreakSettings(
                     config = uiState.silenceBreakConfig,
                     emailConfig = uiState.emailConfig,
@@ -211,21 +179,9 @@ fun SettingsScreen(
                     onTestEmail = viewModel::testEmailConnection,
                     onTestNow = viewModel::testSilenceBreak
                 )
-
-                HorizontalDivider()
-
-                // 日记分析设置
-                DiaryAnalysisSettings(
-                    enabled = uiState.diaryAnalysisEnabled,
-                    aiConfigured = uiState.aiConfigured,
-                    onEnabledChange = viewModel::setDiaryAnalysisEnabled
-                )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // WebDAV settings
-            SettingsSection(title = "数据同步") {
+            SettingsGroup(title = "数据") {
                 ListItem(
                     headlineContent = { Text("WebDAV 同步") },
                     supportingContent = {
@@ -234,17 +190,12 @@ fun SettingsScreen(
                     leadingContent = {
                         Icon(Icons.Default.Cloud, contentDescription = null)
                     },
-                    trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                    },
-                    modifier = Modifier.clickable { onWebDAVSettingsClick() }
+                    trailingContent = { Chevron() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onWebDAVSettingsClick() }
                 )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Data Management
-            SettingsSection(title = "数据管理") {
+                InsetDivider()
                 DataManagementSettings(
                     onTagsClick = onTagsClick,
                     onExportClick = {
@@ -259,15 +210,31 @@ fun SettingsScreen(
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // About
-            SettingsSection(title = "关于") {
+            SettingsGroup(title = "关于") {
+                val versionName = remember {
+                    runCatching {
+                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                    }.getOrNull()
+                }
                 ListItem(
                     headlineContent = { Text("MindTrace") },
-                    supportingContent = { Text("版本 1.0.0") },
+                    supportingContent = {
+                        Text(if (versionName != null) "版本 $versionName" else "记录心情，看见自己")
+                    },
                     leadingContent = {
-                        Icon(Icons.Default.Info, contentDescription = null)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(MaterialTheme.shapes.small)
+                                .background(Color.Black),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher_foreground),
+                                contentDescription = null,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
                     }
                 )
             }
@@ -275,134 +242,139 @@ fun SettingsScreen(
     }
 }
 
+/** 分组卡片：组标题 + 圆角卡片容器，页内统一视觉语言 */
 @Composable
-private fun SettingsSection(
+private fun SettingsGroup(
     title: String,
-    content: @Composable () -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(
-        modifier = Modifier.padding(16.dp)
-    ) {
+    Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(start = Spacing.sm, bottom = Spacing.sm)
         )
-        content()
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(content = content)
+        }
     }
 }
 
+/** 卡片内分隔线：左侧与 ListItem 文字对齐 */
+@Composable
+private fun InsetDivider() {
+    HorizontalDivider(modifier = Modifier.padding(start = Spacing.xl))
+}
+
+@Composable
+private fun Chevron() {
+    Icon(
+        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeSelector(
     selectedMode: ThemeMode,
     onModeSelected: (ThemeMode) -> Unit
 ) {
-    Column {
+    Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
         Text(
             text = "主题模式",
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = Spacing.sm)
         )
-        ThemeMode.entries.forEach { mode ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                RadioButton(
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            ThemeMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
                     selected = mode == selectedMode,
-                    onClick = { onModeSelected(mode) }
-                )
-                Text(
-                    text = when (mode) {
-                        ThemeMode.SYSTEM -> "跟随系统"
-                        ThemeMode.LIGHT -> "浅色"
-                        ThemeMode.DARK -> "深色"
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                    onClick = { onModeSelected(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = ThemeMode.entries.size
+                    )
+                ) {
+                    Text(
+                        when (mode) {
+                            ThemeMode.SYSTEM -> "跟随系统"
+                            ThemeMode.LIGHT -> "浅色"
+                            ThemeMode.DARK -> "深色"
+                        }
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MoodIconPackSelector(
+private fun MoodIconPackRow(
     selectedPackId: String,
     onPackSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedPack = MoodIconPacks.getById(selectedPackId)
 
-    Column {
-        Text(
-            text = "心情图标包",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
+    Box {
+        ListItem(
+            headlineContent = { Text("心情图标包") },
+            supportingContent = { Text(selectedPack.name) },
+            leadingContent = {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    MoodLevel.entries.take(3).forEach { mood ->
+                        Image(
+                            painter = painterResource(id = selectedPack.getIconRes(mood)),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            },
+            trailingContent = { Chevron() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true }
         )
 
-        ExposedDropdownMenuBox(
+        DropdownMenu(
             expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
+            onDismissRequest = { expanded = false }
         ) {
-            OutlinedTextField(
-                value = selectedPack.name,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                leadingIcon = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        MoodLevel.entries.take(3).forEach { mood ->
-                            Image(
-                                painter = painterResource(id = selectedPack.getIconRes(mood)),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth()
-            )
-
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                MoodIconPacks.allPacks.forEach { pack ->
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // 显示所有5个表情预览
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    MoodLevel.entries.forEach { mood ->
-                                        Image(
-                                            painter = painterResource(id = pack.getIconRes(mood)),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+            MoodIconPacks.allPacks.forEach { pack ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            // 显示所有5个表情预览
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                MoodLevel.entries.forEach { mood ->
+                                    Image(
+                                        painter = painterResource(id = pack.getIconRes(mood)),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(pack.name)
                             }
-                        },
-                        onClick = {
-                            onPackSelected(pack.id)
-                            expanded = false
+                            Text(pack.name)
                         }
-                    )
-                }
+                    },
+                    onClick = {
+                        onPackSelected(pack.id)
+                        expanded = false
+                    }
+                )
             }
         }
     }
@@ -416,7 +388,7 @@ private fun DataManagementSettings(
     isExporting: Boolean,
     isImporting: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column {
         // 标签管理
         ListItem(
             headlineContent = { Text("标签管理") },
@@ -424,66 +396,59 @@ private fun DataManagementSettings(
             leadingContent = {
                 Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null)
             },
+            trailingContent = { Chevron() },
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onTagsClick() }
         )
 
-        HorizontalDivider()
+        InsetDivider()
 
-        // 导出数据
+        // 导出数据：整行点击，进行中显示进度并禁用
         ListItem(
             headlineContent = { Text("导出数据") },
-            supportingContent = { Text("导出到 ZIP 文件（包含图片）") },
+            supportingContent = { Text("备份为 ZIP，包含图片") },
             leadingContent = {
+                Icon(Icons.Default.Upload, contentDescription = null)
+            },
+            trailingContent = {
                 if (isExporting) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Icon(Icons.Default.Upload, contentDescription = null)
+                    Chevron()
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !isExporting && !isImporting) { onExportClick() }
         )
 
-        OutlinedButton(
-            onClick = onExportClick,
-            enabled = !isExporting,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isExporting) "导出中..." else "导出数据")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        HorizontalDivider()
+        InsetDivider()
 
         // 导入数据
         ListItem(
             headlineContent = { Text("导入数据") },
             supportingContent = { Text("从 ZIP 或 JSON 文件恢复") },
             leadingContent = {
+                Icon(Icons.Default.Download, contentDescription = null)
+            },
+            trailingContent = {
                 if (isImporting) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Icon(Icons.Default.Download, contentDescription = null)
+                    Chevron()
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !isExporting && !isImporting) { onImportClick() }
         )
-
-        OutlinedButton(
-            onClick = onImportClick,
-            enabled = !isImporting,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isImporting) "导入中..." else "导入数据")
-        }
     }
 }
 
@@ -1049,15 +1014,15 @@ private fun DiaryAnalysisSettings(
 
 @Composable
 private fun NotificationPermissionCard(
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer
         ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

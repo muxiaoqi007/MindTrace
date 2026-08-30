@@ -40,6 +40,10 @@ class AIChatViewModel @Inject constructor(
     private var conversationLoadJob: Job? = null
 
     init {
+        // 首页"今日洞察"等问题可以通过 seed 参数预填输入框
+        savedStateHandle.get<String>(SEED_KEY)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { seed -> _uiState.update { it.copy(inputText = seed) } }
         viewModelScope.launch {
             settingsDataStore.aiConfig.collect { config ->
                 _uiState.update {
@@ -297,5 +301,6 @@ class AIChatViewModel @Inject constructor(
 
     private companion object {
         const val CONVERSATION_ID_KEY = "conversationId"
+        const val SEED_KEY = "seed"
     }
 }

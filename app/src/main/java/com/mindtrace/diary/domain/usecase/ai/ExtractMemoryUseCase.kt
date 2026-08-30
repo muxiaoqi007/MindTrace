@@ -81,6 +81,9 @@ category 只能取以下之一：
 
             val diary = diaryRepository.getDiaryById(diaryId)
                 ?: return Result.success(emptyList())
+            if (diary.excludeFromAI) {
+                return Result.success(emptyList())
+            }
             if (diary.content.length < MIN_CONTENT_LENGTH) {
                 return Result.success(emptyList())
             }

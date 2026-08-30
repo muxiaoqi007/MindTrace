@@ -18,9 +18,14 @@ data class DiaryEditUiState(
     val mood: MoodLevel? = null,
     val weather: String? = null,
     val location: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val coordinatesCleared: Boolean = false,
     val tags: List<String> = emptyList(),
     val entries: List<DiaryEntry> = emptyList(),
     val date: LocalDate? = null,
+    val excludeFromAI: Boolean = false,
+    val excludeFromResurfacing: Boolean = false,
     val error: String? = null,
     val isSaved: Boolean = false
 )
@@ -29,5 +34,10 @@ data class DiaryDetailUiState(
     val isLoading: Boolean = true,
     val diary: Diary? = null,
     val error: String? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val followUpQuestion: String? = null,
+    val followUpEvidence: String? = null,
+    val followUpAnswer: String = "",
+    val isGeneratingFollowUp: Boolean = false,
+    val isSavingFollowUp: Boolean = false
 )

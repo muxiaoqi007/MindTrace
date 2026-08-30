@@ -12,6 +12,8 @@ data class Diary(
     val mood: MoodLevel? = null,
     val weather: String? = null,
     val location: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val tags: List<String> = emptyList(),
     val entries: List<DiaryEntry> = emptyList(),
     val date: LocalDate? = null,
@@ -19,6 +21,8 @@ data class Diary(
     val updatedAt: LocalDateTime,
     val syncedAt: LocalDateTime? = null,
     val isDeleted: Boolean = false,
+    val excludeFromAI: Boolean = false,
+    val excludeFromResurfacing: Boolean = false,
     // AI 分析字段
     val summary: String? = null,           // AI 生成的摘要
     val sentimentScore: Float? = null,     // 情感分数 (0-1, 0=负面, 1=正面)

@@ -32,8 +32,18 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_NAME_SILENCE_BREAK = "沉默唤醒"
         const val CHANNEL_DESC_SILENCE_BREAK = "长时间未活跃时的提醒"
 
+        const val CHANNEL_ID_TIME_CAPSULE = "time_capsule"
+        const val CHANNEL_NAME_TIME_CAPSULE = "时光胶囊"
+        const val CHANNEL_DESC_TIME_CAPSULE = "时光胶囊到期可开启时的提醒"
+
+        const val CHANNEL_ID_ONE_SECOND = "one_second_life"
+        const val CHANNEL_NAME_ONE_SECOND = "一秒人生"
+        const val CHANNEL_DESC_ONE_SECOND = "每日选择一个生活片段的提醒"
+
         const val NOTIFICATION_ID_MIDNIGHT_REVIEW = 1001
         const val NOTIFICATION_ID_SILENCE_BREAK = 1002
+        const val NOTIFICATION_ID_TIME_CAPSULE_BASE = 2000
+        const val NOTIFICATION_ID_ONE_SECOND = 3001
 
         const val EXTRA_REVIEW_ID = "review_id"
     }
@@ -66,8 +76,20 @@ class NotificationHelper @Inject constructor(
                 description = CHANNEL_DESC_SILENCE_BREAK
             }
 
+            val timeCapsuleChannel = NotificationChannel(
+                CHANNEL_ID_TIME_CAPSULE,
+                CHANNEL_NAME_TIME_CAPSULE,
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = CHANNEL_DESC_TIME_CAPSULE }
+
+            val oneSecondChannel = NotificationChannel(
+                CHANNEL_ID_ONE_SECOND,
+                CHANNEL_NAME_ONE_SECOND,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = CHANNEL_DESC_ONE_SECOND }
+
             notificationManager.createNotificationChannels(
-                listOf(midnightReviewChannel, silenceBreakChannel)
+                listOf(midnightReviewChannel, silenceBreakChannel, timeCapsuleChannel, oneSecondChannel)
             )
         }
     }
@@ -152,6 +174,60 @@ class NotificationHelper @Inject constructor(
         } catch (_: SecurityException) {
             // Permission can be revoked between the check and notify().
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun showTimeCapsuleNotification(capsuleId: String, title: String) {
+        if (!hasNotificationPermission()) return
+        val notificationId = NOTIFICATION_ID_TIME_CAPSULE_BASE + (capsuleId.hashCode() and 0x3fff)
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "ACTION_OPEN_TIME_CAPSULE"
+            putExtra("time_capsule_id", capsuleId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_TIME_CAPSULE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("一枚时光胶囊可以开启了")
+            .setContentText(title)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun showOneSecondReminder() {
+        if (!hasNotificationPermission()) return
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "ACTION_OPEN_ONE_SECOND_LIFE"
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, NOTIFICATION_ID_ONE_SECOND, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_ONE_SECOND)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("今天的一秒，你想留下什么？")
+            .setContentText("可以是一张照片，也可以是一段视频。允许今天空着。")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_ONE_SECOND, notification)
+        } catch (_: SecurityException) { }
     }
 
     /**

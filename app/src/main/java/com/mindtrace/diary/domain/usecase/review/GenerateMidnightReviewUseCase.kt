@@ -45,6 +45,7 @@ class GenerateMidnightReviewUseCase @Inject constructor(
             val today = LocalDate.now()
 
             val todayDiaries = diaryRepository.getDiariesByDateRange(today, today.plusDays(1)).first()
+                .filterNot { it.excludeFromAI }
             if (todayDiaries.isEmpty()) {
                 return Result.success(null)
             }

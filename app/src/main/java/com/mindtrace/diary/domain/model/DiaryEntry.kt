@@ -19,7 +19,8 @@ data class DiaryEntry(
  */
 enum class EntryType {
     FLASH_NOTE,    // Quick flash note entry
-    MAIN_CONTENT;  // Main diary content
+    MAIN_CONTENT,  // Main diary content
+    REFLECTION;    // User answer to an optional AI follow-up question
 
     companion object {
         fun fromString(value: String?): EntryType? {

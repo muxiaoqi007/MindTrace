@@ -13,8 +13,8 @@ android {
         applicationId = "com.mindtrace.diary"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.6.2"
+        versionCode = 9
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -111,6 +111,10 @@ dependencies {
 
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // One-second-life monthly montage export
+    implementation("androidx.media3:media3-transformer:1.7.1")
+    implementation("androidx.media3:media3-effect:1.7.1")
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")

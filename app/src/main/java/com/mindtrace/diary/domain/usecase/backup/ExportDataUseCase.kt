@@ -21,7 +21,8 @@ class ExportDataUseCase @Inject constructor(
     @ApplicationContext private val context: Context,
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
-    private val todoDao: TodoDao
+    private val todoDao: TodoDao,
+    private val personalization: PersonalizationBackupDataSource
 ) {
     private val gson: Gson = GsonBuilder()
         .setPrettyPrinting()
@@ -39,13 +40,13 @@ class ExportDataUseCase @Inject constructor(
             val flashNotes = flashNoteDao.getAllFlashNotesOnce()
             val todos = todoDao.getAllTodosOnce()
 
-            val exportData = ExportData(
-                version = 1,
+            val exportData = personalization.appendTo(ExportData(
+                version = 3,
                 exportTime = System.currentTimeMillis(),
                 diaries = diaries,
                 flashNotes = flashNotes,
                 todos = todos
-            )
+            ))
 
             // 写入文件
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->

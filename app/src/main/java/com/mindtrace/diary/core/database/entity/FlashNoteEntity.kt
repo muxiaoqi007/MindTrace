@@ -13,5 +13,7 @@ data class FlashNoteEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val excludeFromAI: Boolean = false,
+    val excludeFromResurfacing: Boolean = false
 )

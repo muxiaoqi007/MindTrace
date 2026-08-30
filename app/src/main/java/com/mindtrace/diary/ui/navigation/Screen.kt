@@ -1,5 +1,6 @@
 package com.mindtrace.diary.ui.navigation
 
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -55,16 +56,6 @@ sealed class Screen(
         fun createRoute(id: String): String = "diary/$id"
     }
 
-    object FlashNoteAdd : Screen(
-        route = "flashnote/add",
-        title = "添加闪念"
-    )
-
-    object TodoList : Screen(
-        route = "todo",
-        title = "待办事项"
-    )
-
     object History : Screen(
         route = "history",
         title = "历史上的今天"
@@ -87,12 +78,70 @@ sealed class Screen(
         title = "搜索"
     )
 
+    object DailyReceipt : Screen(
+        route = "receipt",
+        title = "每日小票"
+    )
+
+    object MemoryWalk : Screen(
+        route = "memory-walk",
+        title = "随机漫步"
+    )
+
+    object DailyMaterial : Screen(
+        route = "daily-material",
+        title = "今日素材篮"
+    )
+
+    object LifeFacets : Screen(
+        route = "life-facets",
+        title = "生活切面"
+    )
+
+    object TimeCapsules : Screen(
+        route = "time-capsules",
+        title = "时光胶囊"
+    )
+
+    object WeeklyMagazine : Screen(
+        route = "weekly-magazine",
+        title = "每周生活杂志"
+    )
+
+    object Storylines : Screen(
+        route = "storylines",
+        title = "人生故事线"
+    )
+
+    object PersonalLexicon : Screen(
+        route = "personal-lexicon",
+        title = "我的词典"
+    )
+
+    object OneSecondLife : Screen(
+        route = "one-second-life",
+        title = "一秒人生"
+    )
+
+    object MapFootprints : Screen(
+        route = "map-footprints",
+        title = "地图足迹"
+    )
+
+    object PrintArchive : Screen(
+        route = "print-archive",
+        title = "打印归档"
+    )
+
     object AIChat : Screen(
-        route = "ai/chat?conversationId={conversationId}",
+        route = "ai/chat?conversationId={conversationId}&seed={seed}",
         title = "AI 伙伴"
     ) {
-        fun createRoute(conversationId: String? = null): String {
-            return if (conversationId != null) "ai/chat?conversationId=$conversationId" else "ai/chat"
+        fun createRoute(conversationId: String? = null, seed: String? = null): String {
+            val params = mutableListOf<String>()
+            conversationId?.let { params.add("conversationId=$it") }
+            seed?.let { params.add("seed=${Uri.encode(it)}") }
+            return if (params.isEmpty()) "ai/chat" else "ai/chat?${params.joinToString("&")}"
         }
     }
 
@@ -149,6 +198,9 @@ sealed class Screen(
     )
 
     companion object {
-        val bottomNavItems = listOf(Home, Calendar, Statistics, Settings)
+        // 必须惰性求值：若在任一 Screen 子对象自身初始化期间（即首次访问该子对象时
+        // 触发基类 <clinit>）急切求值，读到的 INSTANCE 尚未赋值，列表会捕获 null 并
+        // 导致 BottomNavBar 启动即 NPE。
+        val bottomNavItems: List<Screen> by lazy { listOf(Home, Calendar, Statistics, Settings) }
     }
 }

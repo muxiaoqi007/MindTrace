@@ -15,6 +15,8 @@ data class DiaryEntity(
     val mood: String? = null,
     val weather: String? = null,
     val location: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val tags: List<String> = emptyList(),
     val entries: List<DiaryEntryData> = emptyList(),
     val date: Long = 0L,  // Start of day timestamp for grouping
@@ -22,6 +24,8 @@ data class DiaryEntity(
     val updatedAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null,
     val isDeleted: Boolean = false,
+    val excludeFromAI: Boolean = false,
+    val excludeFromResurfacing: Boolean = false,
     // AI 分析字段
     val summary: String? = null,           // AI 生成的摘要
     val sentimentScore: Float? = null,     // 情感分数 (0-1, 0=负面, 1=正面)

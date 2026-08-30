@@ -24,7 +24,8 @@ class ExportDataWithImagesUseCase @Inject constructor(
     @ApplicationContext private val context: Context,
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
-    private val todoDao: TodoDao
+    private val todoDao: TodoDao,
+    private val personalization: PersonalizationBackupDataSource
 ) {
     private val gson: Gson = GsonBuilder()
         .setPrettyPrinting()
@@ -65,13 +66,13 @@ class ExportDataWithImagesUseCase @Inject constructor(
                 BackupImagePathMapper.remapFlashNote(note, imageMapping)
             }
 
-            val exportData = ExportData(
-                version = 2,
+            val exportData = personalization.appendTo(ExportData(
+                version = 3,
                 exportTime = System.currentTimeMillis(),
                 diaries = exportDiaries,
                 flashNotes = exportFlashNotes,
                 todos = todos
-            )
+            ))
 
             // 写入 ZIP 文件
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->

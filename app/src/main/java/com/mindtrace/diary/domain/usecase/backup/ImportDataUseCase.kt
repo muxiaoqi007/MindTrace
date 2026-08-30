@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import androidx.room.withTransaction
+import com.mindtrace.diary.core.database.AppDatabase
 import com.mindtrace.diary.core.database.dao.DiaryDao
 import com.mindtrace.diary.core.database.dao.FlashNoteDao
 import com.mindtrace.diary.core.database.dao.TodoDao
@@ -19,9 +21,11 @@ import javax.inject.Inject
  */
 class ImportDataUseCase @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val database: AppDatabase,
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
-    private val todoDao: TodoDao
+    private val todoDao: TodoDao,
+    private val personalization: PersonalizationBackupDataSource
 ) {
     private val gson: Gson = GsonBuilder().create()
 
@@ -47,22 +51,20 @@ class ImportDataUseCase @Inject constructor(
             var flashNoteCount = 0
             var todoCount = 0
 
-            // 导入日记
-            if (exportData.diaries.isNotEmpty()) {
-                diaryDao.insertDiaries(exportData.diaries)
-                diaryCount = exportData.diaries.size
-            }
-
-            // 导入闪念
-            if (exportData.flashNotes.isNotEmpty()) {
-                flashNoteDao.insertFlashNotes(exportData.flashNotes)
-                flashNoteCount = exportData.flashNotes.size
-            }
-
-            // 导入待办
-            if (exportData.todos.isNotEmpty()) {
-                todoDao.insertTodos(exportData.todos)
-                todoCount = exportData.todos.size
+            database.withTransaction {
+                if (exportData.diaries.orEmpty().isNotEmpty()) {
+                    diaryDao.insertDiaries(exportData.diaries)
+                    diaryCount = exportData.diaries.size
+                }
+                if (exportData.flashNotes.orEmpty().isNotEmpty()) {
+                    flashNoteDao.insertFlashNotes(exportData.flashNotes)
+                    flashNoteCount = exportData.flashNotes.size
+                }
+                if (exportData.todos.orEmpty().isNotEmpty()) {
+                    todoDao.insertTodos(exportData.todos)
+                    todoCount = exportData.todos.size
+                }
+                personalization.restore(exportData)
             }
 
             Result.success(

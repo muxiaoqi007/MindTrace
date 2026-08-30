@@ -28,9 +28,14 @@ class SaveDiaryUseCase @Inject constructor(
         mood: MoodLevel? = null,
         weather: String? = null,
         location: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        clearCoordinates: Boolean = false,
         tags: List<String> = emptyList(),
         entries: List<DiaryEntry> = emptyList(),
-        date: LocalDate? = null
+        date: LocalDate? = null,
+        excludeFromAI: Boolean? = null,
+        excludeFromResurfacing: Boolean? = null
     ): String {
         val now = LocalDateTime.now()
         val existingDiary = id?.let { diaryRepository.getDiaryById(it) }
@@ -46,11 +51,17 @@ class SaveDiaryUseCase @Inject constructor(
             mood = mood,
             weather = weather,
             location = location,
+            latitude = if (clearCoordinates) null else latitude ?: existingDiary?.latitude,
+            longitude = if (clearCoordinates) null else longitude ?: existingDiary?.longitude,
             tags = tags,
             entries = entries.ifEmpty { existingDiary?.entries ?: emptyList() },
             date = date ?: existingDiary?.date ?: now.toLocalDate(),
             createdAt = existingDiary?.createdAt ?: now,
             updatedAt = now,
+            excludeFromAI = excludeFromAI ?: existingDiary?.excludeFromAI ?: false,
+            excludeFromResurfacing = excludeFromResurfacing
+                ?: existingDiary?.excludeFromResurfacing
+                ?: false,
             // 保留已有的分析结果
             summary = existingDiary?.summary,
             sentimentScore = existingDiary?.sentimentScore,
@@ -64,16 +75,18 @@ class SaveDiaryUseCase @Inject constructor(
         }
 
         // 异步触发日记分析与记忆提取（不阻塞保存操作）
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                analyzeDiaryUseCase(diaryId)
-            } catch (e: Exception) {
-                // 分析失败不影响保存
-            }
-            try {
-                extractMemoryUseCase(diaryId)
-            } catch (e: Exception) {
-                // 记忆提取失败不影响保存
+        if (!diary.excludeFromAI) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    analyzeDiaryUseCase(diaryId)
+                } catch (e: Exception) {
+                    // 分析失败不影响保存
+                }
+                try {
+                    extractMemoryUseCase(diaryId)
+                } catch (e: Exception) {
+                    // 记忆提取失败不影响保存
+                }
             }
         }
 

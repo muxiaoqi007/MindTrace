@@ -2,11 +2,13 @@ package com.mindtrace.diary.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mindtrace.diary.core.datastore.SettingsDataStore
 import com.mindtrace.diary.domain.model.TimelineItem
 import com.mindtrace.diary.domain.repository.AiReviewRepository
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.repository.FlashNoteRepository
 import com.mindtrace.diary.domain.repository.TodoRepository
+import com.mindtrace.diary.domain.usecase.ai.GenerateDailyInsightUseCase
 import com.mindtrace.diary.domain.usecase.diary.AppendFlashNoteToDiaryUseCase
 import com.mindtrace.diary.domain.usecase.diary.RemoveFlashNoteFromDiaryUseCase
 import com.mindtrace.diary.domain.usecase.flashnote.DeleteFlashNoteUseCase
@@ -29,7 +31,9 @@ class HomeViewModel @Inject constructor(
     private val saveTodoUseCase: SaveTodoUseCase,
     private val deleteTodoUseCase: DeleteTodoUseCase,
     private val deleteFlashNoteUseCase: DeleteFlashNoteUseCase,
-    private val removeFlashNoteFromDiaryUseCase: RemoveFlashNoteFromDiaryUseCase
+    private val removeFlashNoteFromDiaryUseCase: RemoveFlashNoteFromDiaryUseCase,
+    private val generateDailyInsightUseCase: GenerateDailyInsightUseCase,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -38,6 +42,55 @@ class HomeViewModel @Inject constructor(
     init {
         loadTimeline()
         loadUnreadCount()
+        observeAIConfig()
+        loadDailyInsight()
+    }
+
+    private fun observeAIConfig() {
+        viewModelScope.launch {
+            settingsDataStore.aiConfig.collect { config ->
+                _uiState.update { it.copy(isAIConfigured = config.isConfigured && config.enabled) }
+            }
+        }
+    }
+
+    /** 首页今日洞察：优先读当天缓存，没有则静默生成一次 */
+    private fun loadDailyInsight() {
+        viewModelScope.launch {
+            val cached = generateDailyInsightUseCase.getCachedOrNull()
+            if (cached != null) {
+                _uiState.update { it.copy(dailyInsight = cached, insightLoading = false) }
+            } else {
+                refreshInsight(showError = false)
+            }
+        }
+    }
+
+    /** 用户手动刷新洞察；[showError] 控制失败时是否反馈到界面 */
+    fun refreshInsight(showError: Boolean = true) {
+        if (_uiState.value.insightLoading) return
+        _uiState.update { it.copy(insightLoading = true) }
+        viewModelScope.launch {
+            val result = generateDailyInsightUseCase()
+            result.fold(
+                onSuccess = { insight ->
+                    _uiState.update {
+                        it.copy(dailyInsight = insight, insightLoading = false, insightFailed = false)
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(insightLoading = false, insightFailed = true).let { state ->
+                            if (showError) state.copy(error = e.message ?: "生成洞察失败") else state
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 
     private fun loadUnreadCount() {

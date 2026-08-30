@@ -9,5 +9,7 @@ data class FlashNote(
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
     val syncedAt: LocalDateTime? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val excludeFromAI: Boolean = false,
+    val excludeFromResurfacing: Boolean = false
 )

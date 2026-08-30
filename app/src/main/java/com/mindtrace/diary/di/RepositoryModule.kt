@@ -10,6 +10,11 @@ import com.mindtrace.diary.data.repository.FlashNoteRepositoryImpl
 import com.mindtrace.diary.data.repository.LLMProviderFactory
 import com.mindtrace.diary.data.repository.LLMProviderFactoryImpl
 import com.mindtrace.diary.data.repository.TodoRepositoryImpl
+import com.mindtrace.diary.data.repository.LifeFacetRepositoryImpl
+import com.mindtrace.diary.data.repository.TimeCapsuleRepositoryImpl
+import com.mindtrace.diary.data.repository.StorylineRepositoryImpl
+import com.mindtrace.diary.data.repository.LexiconRepositoryImpl
+import com.mindtrace.diary.data.repository.DailyMediaRepositoryImpl
 import com.mindtrace.diary.domain.repository.AIConversationRepository
 import com.mindtrace.diary.domain.repository.AIMemoryCandidateRepository
 import com.mindtrace.diary.domain.repository.AIMemoryRepository
@@ -18,6 +23,11 @@ import com.mindtrace.diary.domain.repository.AiReviewRepository
 import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.repository.FlashNoteRepository
 import com.mindtrace.diary.domain.repository.TodoRepository
+import com.mindtrace.diary.domain.repository.LifeFacetRepository
+import com.mindtrace.diary.domain.repository.TimeCapsuleRepository
+import com.mindtrace.diary.domain.repository.StorylineRepository
+import com.mindtrace.diary.domain.repository.LexiconRepository
+import com.mindtrace.diary.domain.repository.DailyMediaRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -81,4 +91,34 @@ abstract class RepositoryModule {
     abstract fun bindAiReviewRepository(
         aiReviewRepositoryImpl: AiReviewRepositoryImpl
     ): AiReviewRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLifeFacetRepository(
+        lifeFacetRepositoryImpl: LifeFacetRepositoryImpl
+    ): LifeFacetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTimeCapsuleRepository(
+        timeCapsuleRepositoryImpl: TimeCapsuleRepositoryImpl
+    ): TimeCapsuleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStorylineRepository(
+        storylineRepositoryImpl: StorylineRepositoryImpl
+    ): StorylineRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLexiconRepository(
+        lexiconRepositoryImpl: LexiconRepositoryImpl
+    ): LexiconRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDailyMediaRepository(
+        dailyMediaRepositoryImpl: DailyMediaRepositoryImpl
+    ): DailyMediaRepository
 }

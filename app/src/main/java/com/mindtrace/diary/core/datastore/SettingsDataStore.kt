@@ -4,11 +4,14 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.gson.Gson
 import com.mindtrace.diary.core.security.CryptoManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,6 +67,13 @@ class SettingsDataStore @Inject constructor(
         val USER_DISPLAY_NAME = stringPreferencesKey("user_display_name")
         val AI_DISPLAY_NAME = stringPreferencesKey("ai_display_name")
         val SOUL_RELATIONSHIP_NOTE = stringPreferencesKey("soul_relationship_note")
+        val ONE_SECOND_REMINDER_ENABLED = booleanPreferencesKey("one_second_reminder_enabled")
+        // 首页"今日洞察"缓存（按天失效）
+        val DAILY_INSIGHT_JSON = stringPreferencesKey("daily_insight_json")
+        val DAILY_INSIGHT_DATE = stringPreferencesKey("daily_insight_date")
+        // 自我画像 AI 叙事缓存
+        val SELF_NARRATIVE_JSON = stringPreferencesKey("self_narrative_json")
+        val SELF_NARRATIVE_TIME = longPreferencesKey("self_narrative_time")
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data
@@ -106,6 +116,14 @@ class SettingsDataStore @Inject constructor(
                 systemPrompt = preferences[Keys.AI_SYSTEM_PROMPT] ?: AIConfig.DEFAULT_SYSTEM_PROMPT
             )
         }
+
+    val oneSecondReminderEnabled: Flow<Boolean> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { preferences -> preferences[Keys.ONE_SECOND_REMINDER_ENABLED] ?: false }
+
+    suspend fun setOneSecondReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.ONE_SECOND_REMINDER_ENABLED] = enabled }
+    }
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences ->
@@ -346,7 +364,54 @@ class SettingsDataStore @Inject constructor(
     suspend fun setSoulRelationshipNote(note: String) {
         context.dataStore.edit { preferences -> preferences[Keys.SOUL_RELATIONSHIP_NOTE] = note }
     }
+
+    // 首页"今日洞察"缓存：只存 observation/question 与日期，避免 Gson 序列化 java.time
+    suspend fun getDailyInsightCache(forDate: LocalDate): DailyInsightCache? {
+        val preferences = context.dataStore.data.firstOrNull() ?: return null
+        if (preferences[Keys.DAILY_INSIGHT_DATE] != forDate.toString()) return null
+        val json = preferences[Keys.DAILY_INSIGHT_JSON] ?: return null
+        return runCatching { Gson().fromJson(json, DailyInsightCache::class.java) }.getOrNull()
+    }
+
+    suspend fun setDailyInsightCache(cache: DailyInsightCache) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.DAILY_INSIGHT_JSON] = Gson().toJson(cache)
+            preferences[Keys.DAILY_INSIGHT_DATE] = cache.forDate.toString()
+        }
+    }
+
+    // 自我画像 AI 叙事缓存
+    suspend fun getSelfNarrativeCache(): SelfNarrativeCache? {
+        val preferences = context.dataStore.data.firstOrNull() ?: return null
+        val json = preferences[Keys.SELF_NARRATIVE_JSON] ?: return null
+        val time = preferences[Keys.SELF_NARRATIVE_TIME] ?: return null
+        return runCatching {
+            Gson().fromJson(json, SelfNarrativeCache::class.java).copy(generatedAtMillis = time)
+        }.getOrNull()
+    }
+
+    suspend fun setSelfNarrativeCache(cache: SelfNarrativeCache) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.SELF_NARRATIVE_JSON] = Gson().toJson(cache)
+            preferences[Keys.SELF_NARRATIVE_TIME] = cache.generatedAtMillis
+        }
+    }
 }
+
+/** 今日洞察的 DataStore 缓存体（不含 java.time 类型） */
+data class DailyInsightCache(
+    val observation: String,
+    val question: String,
+    val forDate: String
+)
+
+/** 自我画像叙事的 DataStore 缓存体（不含 java.time 类型） */
+data class SelfNarrativeCache(
+    val narrative: String,
+    val keywords: List<String>,
+    val suggestion: String,
+    val generatedAtMillis: Long
+)
 
 enum class ThemeMode {
     SYSTEM, LIGHT, DARK;

@@ -13,6 +13,10 @@ import com.mindtrace.diary.domain.usecase.diary.DeleteDiaryUseCase
 import com.mindtrace.diary.domain.usecase.diary.GetDiaryByIdUseCase
 import com.mindtrace.diary.domain.usecase.diary.SaveDiaryUseCase
 import com.mindtrace.diary.domain.usecase.tag.GetAllTagsUseCase
+import com.mindtrace.diary.domain.usecase.ai.GenerateFollowUpQuestionUseCase
+import com.mindtrace.diary.domain.model.DiaryEntry
+import com.mindtrace.diary.domain.model.EntryType
+import java.time.LocalDateTime
 import java.util.UUID
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -72,9 +76,14 @@ class DiaryEditViewModel @Inject constructor(
                             mood = diary.mood,
                             weather = diary.weather,
                             location = diary.location,
+                            latitude = diary.latitude,
+                            longitude = diary.longitude,
+                            coordinatesCleared = false,
                             tags = diary.tags,
                             entries = diary.entries,
-                            date = diary.date
+                            date = diary.date,
+                            excludeFromAI = diary.excludeFromAI,
+                            excludeFromResurfacing = diary.excludeFromResurfacing
                         )
                     }
                 } else {
@@ -121,6 +130,30 @@ class DiaryEditViewModel @Inject constructor(
 
     fun removeTag(tag: String) {
         _uiState.update { it.copy(tags = it.tags - tag) }
+    }
+
+    fun setExcludeFromAI(exclude: Boolean) {
+        _uiState.update { it.copy(excludeFromAI = exclude) }
+    }
+
+    fun setLocation(name: String?, latitude: Double, longitude: Double) {
+        if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return
+        _uiState.update {
+            it.copy(
+                location = name?.trim()?.takeIf(String::isNotEmpty),
+                latitude = latitude,
+                longitude = longitude,
+                coordinatesCleared = false
+            )
+        }
+    }
+
+    fun clearLocationCoordinates() {
+        _uiState.update { it.copy(latitude = null, longitude = null, coordinatesCleared = true) }
+    }
+
+    fun setExcludeFromResurfacing(exclude: Boolean) {
+        _uiState.update { it.copy(excludeFromResurfacing = exclude) }
     }
 
     // --- 块级编辑操作 ---
@@ -218,9 +251,14 @@ class DiaryEditViewModel @Inject constructor(
                     mood = state.mood,
                     weather = state.weather,
                     location = state.location,
+                    latitude = state.latitude,
+                    longitude = state.longitude,
+                    clearCoordinates = state.coordinatesCleared,
                     tags = state.tags,
                     entries = state.entries,
-                    date = state.date
+                    date = state.date,
+                    excludeFromAI = state.excludeFromAI,
+                    excludeFromResurfacing = state.excludeFromResurfacing
                 )
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: Exception) {
@@ -243,7 +281,9 @@ class DiaryEditViewModel @Inject constructor(
 class DiaryDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getDiaryByIdUseCase: GetDiaryByIdUseCase,
-    private val deleteDiaryUseCase: DeleteDiaryUseCase
+    private val deleteDiaryUseCase: DeleteDiaryUseCase,
+    private val generateFollowUpQuestion: GenerateFollowUpQuestionUseCase,
+    private val diaryRepository: DiaryRepository
 ) : ViewModel() {
 
     private val diaryId: String = savedStateHandle["id"] ?: ""
@@ -284,5 +324,74 @@ class DiaryDetailViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun requestFollowUp(another: Boolean = false) {
+        val diary = _uiState.value.diary ?: return
+        if (diary.excludeFromAI || _uiState.value.isGeneratingFollowUp) return
+        val previous = _uiState.value.followUpQuestion.takeIf { another }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGeneratingFollowUp = true, error = null) }
+            generateFollowUpQuestion(diaryId, previous)
+                .onSuccess { result ->
+                    _uiState.update {
+                        it.copy(
+                            isGeneratingFollowUp = false,
+                            followUpQuestion = result?.question,
+                            followUpEvidence = result?.evidence,
+                            followUpAnswer = "",
+                            error = if (result == null) "AI 未启用、未配置，或日记内容太短" else null
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(isGeneratingFollowUp = false, error = error.message ?: "生成追问失败")
+                    }
+                }
+        }
+    }
+
+    fun updateFollowUpAnswer(value: String) {
+        _uiState.update { it.copy(followUpAnswer = value) }
+    }
+
+    fun saveFollowUpAnswer() {
+        val state = _uiState.value
+        val diary = state.diary ?: return
+        val question = state.followUpQuestion ?: return
+        val answer = state.followUpAnswer.trim()
+        if (answer.isEmpty() || state.isSavingFollowUp) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingFollowUp = true) }
+            runCatching {
+                diaryRepository.updateDiary(
+                    diary.copy(
+                        entries = diary.entries + DiaryEntry(
+                            id = UUID.randomUUID().toString(),
+                            content = "AI 追问：$question\n我的回答：$answer",
+                            timestamp = LocalDateTime.now(),
+                            type = EntryType.REFLECTION
+                        ),
+                        updatedAt = LocalDateTime.now()
+                    )
+                )
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isSavingFollowUp = false,
+                        followUpQuestion = null,
+                        followUpEvidence = null,
+                        followUpAnswer = ""
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isSavingFollowUp = false, error = error.message ?: "保存回答失败") }
+            }
+        }
+    }
+
+    fun stopFollowUp() {
+        _uiState.update { it.copy(followUpQuestion = null, followUpEvidence = null, followUpAnswer = "") }
     }
 }

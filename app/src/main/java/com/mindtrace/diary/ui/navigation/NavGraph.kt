@@ -10,15 +10,24 @@ import androidx.navigation.navArgument
 import com.mindtrace.diary.ui.screens.calendar.CalendarScreen
 import com.mindtrace.diary.ui.screens.diary.DiaryDetailScreen
 import com.mindtrace.diary.ui.screens.diary.DiaryEditScreen
-import com.mindtrace.diary.ui.screens.flashnote.FlashNoteAddScreen
 import com.mindtrace.diary.ui.screens.history.HistoryScreen
 import com.mindtrace.diary.ui.screens.home.HomeScreen
+import com.mindtrace.diary.ui.screens.receipt.DailyReceiptScreen
+import com.mindtrace.diary.ui.screens.memorywalk.MemoryWalkScreen
+import com.mindtrace.diary.ui.screens.material.DailyMaterialScreen
+import com.mindtrace.diary.ui.screens.facets.LifeFacetsScreen
+import com.mindtrace.diary.ui.screens.capsule.TimeCapsuleScreen
+import com.mindtrace.diary.ui.screens.magazine.WeeklyMagazineScreen
+import com.mindtrace.diary.ui.screens.storyline.StorylineScreen
+import com.mindtrace.diary.ui.screens.lexicon.PersonalLexiconScreen
+import com.mindtrace.diary.ui.screens.onesecond.OneSecondLifeScreen
+import com.mindtrace.diary.ui.screens.map.MapFootprintsScreen
+import com.mindtrace.diary.ui.screens.print.PrintArchiveScreen
 import com.mindtrace.diary.ui.screens.search.SearchScreen
 import com.mindtrace.diary.ui.screens.settings.SettingsScreen
 import com.mindtrace.diary.ui.screens.statistics.StatisticsScreen
 import com.mindtrace.diary.ui.screens.tags.TagDiariesScreen
 import com.mindtrace.diary.ui.screens.tags.TagsScreen
-import com.mindtrace.diary.ui.screens.todo.TodoScreen
 import com.mindtrace.diary.ui.screens.ai.AIChatScreen
 import com.mindtrace.diary.ui.screens.ai.AISettingsScreen
 import com.mindtrace.diary.ui.screens.ai.MemoryCenterScreen
@@ -44,20 +53,50 @@ fun NavGraph(
                 onDiaryClick = { id ->
                     navController.navigate(Screen.DiaryDetail.createRoute(id))
                 },
-                onAddDiary = {
-                    navController.navigate(Screen.DiaryEdit.createRoute())
-                },
-                onAddFlashNote = {
-                    navController.navigate(Screen.FlashNoteAdd.route)
-                },
-                onAddTodo = {
-                    navController.navigate(Screen.TodoList.route)
-                },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
                 },
                 onAIChatClick = {
                     navController.navigate(Screen.AIChat.createRoute())
+                },
+                onDailyReceiptClick = {
+                    navController.navigate(Screen.DailyReceipt.route)
+                },
+                onMemoryWalkClick = {
+                    navController.navigate(Screen.MemoryWalk.route)
+                },
+                onDailyMaterialClick = {
+                    navController.navigate(Screen.DailyMaterial.route)
+                },
+                onLifeFacetsClick = {
+                    navController.navigate(Screen.LifeFacets.route)
+                },
+                onTimeCapsulesClick = {
+                    navController.navigate(Screen.TimeCapsules.route)
+                },
+                onWeeklyMagazineClick = {
+                    navController.navigate(Screen.WeeklyMagazine.route)
+                },
+                onStorylinesClick = {
+                    navController.navigate(Screen.Storylines.route)
+                },
+                onPersonalLexiconClick = {
+                    navController.navigate(Screen.PersonalLexicon.route)
+                },
+                onOneSecondLifeClick = {
+                    navController.navigate(Screen.OneSecondLife.route)
+                },
+                onMapFootprintsClick = {
+                    navController.navigate(Screen.MapFootprints.route)
+                },
+                onPrintArchiveClick = {
+                    navController.navigate(Screen.PrintArchive.route)
+                },
+                onAISettingsClick = {
+                    navController.navigate(Screen.AISettings.route)
+                },
+                onAskAIQuestion = { question ->
+                    navController.navigate(Screen.AIChat.createRoute(seed = question))
                 }
             )
         }
@@ -88,12 +127,6 @@ fun NavGraph(
                 },
                 onAISettingsClick = {
                     navController.navigate(Screen.AISettings.route)
-                },
-                onAIMemoryCenterClick = {
-                    navController.navigate(Screen.AIMemoryCenter.route)
-                },
-                onAISoulConfigClick = {
-                    navController.navigate(Screen.AISoulConfig.route)
                 },
                 onWebDAVSettingsClick = {
                     navController.navigate(Screen.WebDAVSettings.route)
@@ -137,22 +170,6 @@ fun NavGraph(
                 },
                 onEdit = {
                     navController.navigate(Screen.DiaryEdit.createRoute(diaryId))
-                }
-            )
-        }
-
-        composable(Screen.FlashNoteAdd.route) {
-            FlashNoteAddScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(Screen.TodoList.route) {
-            TodoScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
                 }
             )
         }
@@ -208,10 +225,80 @@ fun NavGraph(
             )
         }
 
+        composable(Screen.DailyReceipt.route) {
+            DailyReceiptScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.MemoryWalk.route) {
+            MemoryWalkScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenDiary = { diaryId ->
+                    navController.navigate(Screen.DiaryDetail.createRoute(diaryId))
+                }
+            )
+        }
+
+        composable(Screen.DailyMaterial.route) {
+            DailyMaterialScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenDiary = { diaryId ->
+                    navController.navigate(Screen.DiaryDetail.createRoute(diaryId))
+                }
+            )
+        }
+
+        composable(Screen.LifeFacets.route) {
+            LifeFacetsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.TimeCapsules.route) {
+            TimeCapsuleScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.WeeklyMagazine.route) {
+            WeeklyMagazineScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.Storylines.route) {
+            StorylineScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenDiary = { id -> navController.navigate(Screen.DiaryDetail.createRoute(id)) }
+            )
+        }
+
+        composable(Screen.PersonalLexicon.route) {
+            PersonalLexiconScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenDiary = { id -> navController.navigate(Screen.DiaryDetail.createRoute(id)) }
+            )
+        }
+
+        composable(Screen.OneSecondLife.route) {
+            OneSecondLifeScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.MapFootprints.route) {
+            MapFootprintsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenDiary = { id -> navController.navigate(Screen.DiaryDetail.createRoute(id)) }
+            )
+        }
+
+        composable(Screen.PrintArchive.route) {
+            PrintArchiveScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
         composable(
             route = Screen.AIChat.route,
             arguments = listOf(
                 navArgument("conversationId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("seed") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null

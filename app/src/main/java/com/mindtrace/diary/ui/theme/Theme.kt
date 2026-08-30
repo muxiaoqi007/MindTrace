@@ -3,7 +3,9 @@ package com.mindtrace.diary.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -14,8 +16,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.mindtrace.diary.core.datastore.ThemeMode
+
+/**
+ * 统一圆角体系：小圆角用于 Chip/输入框，中圆角用于列表卡片，
+ * 大圆角用于重点卡片区，超大圆角用于底部弹层。
+ */
+private val MindShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(24.dp)
+)
 
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryLight,
@@ -104,6 +119,7 @@ fun MindTraceTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = MindShapes,
         content = content
     )
 }

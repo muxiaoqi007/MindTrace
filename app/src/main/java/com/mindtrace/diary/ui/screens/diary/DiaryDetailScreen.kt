@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -225,7 +226,7 @@ fun DiaryDetailScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "闪念记录",
+                        text = "补充记录",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -235,6 +236,69 @@ fun DiaryDetailScreen(
                     diary.entries.sortedByDescending { it.timestamp }.forEach { entry ->
                         FlashNoteEntryItem(entry = entry)
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                if (diary.excludeFromAI) {
+                    Text(
+                        text = "这篇日记已关闭 AI 功能",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (uiState.followUpQuestion == null) {
+                    OutlinedButton(
+                        onClick = { viewModel.requestFollowUp() },
+                        enabled = !uiState.isGeneratingFollowUp
+                    ) {
+                        if (uiState.isGeneratingFollowUp) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (uiState.isGeneratingFollowUp) "正在阅读…" else "请 AI 问我一个问题")
+                    }
+                } else {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("可选反思", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.height(6.dp))
+                            Text(uiState.followUpQuestion.orEmpty(), style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                            uiState.followUpEvidence?.let { evidence ->
+                                Text(
+                                    "根据原文：“$evidence”",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 6.dp)
+                                )
+                            }
+                            OutlinedTextField(
+                                value = uiState.followUpAnswer,
+                                onValueChange = viewModel::updateFollowUpAnswer,
+                                label = { Text("我的回答") },
+                                minLines = 2,
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                TextButton(onClick = viewModel::stopFollowUp) { Text("结束") }
+                                TextButton(
+                                    onClick = { viewModel.requestFollowUp(another = true) },
+                                    enabled = !uiState.isGeneratingFollowUp
+                                ) { Text("换一个") }
+                                Button(
+                                    onClick = viewModel::saveFollowUpAnswer,
+                                    enabled = uiState.followUpAnswer.isNotBlank() && !uiState.isSavingFollowUp,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(if (uiState.isSavingFollowUp) "保存中…" else "保存回答") }
+                            }
+                        }
                     }
                 }
 
@@ -304,7 +368,7 @@ private fun FlashNoteEntryItem(
                     .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
             ) {
                 Icon(
-                    imageVector = Icons.Default.FlashOn,
+                    imageVector = if (entry.type == EntryType.REFLECTION) Icons.Default.AutoAwesome else Icons.Default.FlashOn,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(14.dp)

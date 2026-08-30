@@ -82,7 +82,9 @@ class FlashNoteRepositoryImpl @Inject constructor(
             createdAt = DateUtils.fromEpochMillis(createdAt),
             updatedAt = DateUtils.fromEpochMillis(updatedAt),
             syncedAt = syncedAt?.let { DateUtils.fromEpochMillis(it) },
-            isDeleted = isDeleted
+            isDeleted = isDeleted,
+            excludeFromAI = excludeFromAI,
+            excludeFromResurfacing = excludeFromResurfacing
         )
     }
 
@@ -94,7 +96,9 @@ class FlashNoteRepositoryImpl @Inject constructor(
             createdAt = DateUtils.toEpochMillis(createdAt),
             updatedAt = DateUtils.toEpochMillis(updatedAt),
             syncedAt = syncedAt?.let { DateUtils.toEpochMillis(it) },
-            isDeleted = isDeleted
+            isDeleted = isDeleted,
+            excludeFromAI = excludeFromAI,
+            excludeFromResurfacing = excludeFromResurfacing
         )
     }
 }

@@ -78,7 +78,7 @@ class DiaryRepositoryImpl @Inject constructor(
         val monthDay = today.format(DateTimeFormatter.ofPattern("MM-dd"))
         val currentYear = today.year.toString()
         return diaryDao.getHistoryOnThisDay(monthDay, currentYear).map { entities ->
-            entities.map { it.toDomain() }
+            entities.map { it.toDomain() }.filterNot { it.excludeFromResurfacing }
         }
     }
 
@@ -151,6 +151,8 @@ class DiaryRepositoryImpl @Inject constructor(
             mood = MoodLevel.fromLegacyMoodType(mood),
             weather = weather,
             location = location,
+            latitude = latitude,
+            longitude = longitude,
             tags = tags,
             entries = entries.map { it.toDomainEntry() },
             date = if (date > 0) DateUtils.fromEpochMillis(date).toLocalDate() else null,
@@ -158,6 +160,8 @@ class DiaryRepositoryImpl @Inject constructor(
             updatedAt = DateUtils.fromEpochMillis(updatedAt),
             syncedAt = syncedAt?.let { DateUtils.fromEpochMillis(it) },
             isDeleted = isDeleted,
+            excludeFromAI = excludeFromAI,
+            excludeFromResurfacing = excludeFromResurfacing,
             summary = summary,
             sentimentScore = sentimentScore,
             aiTags = aiTags
@@ -178,6 +182,8 @@ class DiaryRepositoryImpl @Inject constructor(
             mood = mood?.name,
             weather = weather,
             location = location,
+            latitude = latitude,
+            longitude = longitude,
             tags = tags,
             entries = entries.map { it.toEntityEntry() },
             date = date?.let { DateUtils.getStartOfDay(it) } ?: DateUtils.getStartOfDay(createdAt.toLocalDate()),
@@ -185,6 +191,8 @@ class DiaryRepositoryImpl @Inject constructor(
             updatedAt = DateUtils.toEpochMillis(updatedAt),
             syncedAt = syncedAt?.let { DateUtils.toEpochMillis(it) },
             isDeleted = isDeleted,
+            excludeFromAI = excludeFromAI,
+            excludeFromResurfacing = excludeFromResurfacing,
             summary = summary,
             sentimentScore = sentimentScore,
             aiTags = aiTags

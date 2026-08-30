@@ -68,32 +68,24 @@ val SurfaceVariantDark = Color(0xFF49454F)
 val OnSurfaceVariantDark = Color(0xFFCAC4D0)
 val OutlineDark = Color(0xFF938F99)
 
-// Mood Colors - 5 级心情系统
-val MoodGreat = Color(0xFF4CAF50)   // 非常好 - 绿色
-val MoodGood = Color(0xFF8BC34A)    // 好 - 浅绿
-val MoodOkay = Color(0xFFFFC107)    // 一般 - 黄色
-val MoodBad = Color(0xFFFF9800)     // 差 - 橙色
-val MoodAwful = Color(0xFFF44336)   // 非常差 - 红色
-
-// 旧版心情颜色（保留兼容）
-@Deprecated("使用新的 5 级心情颜色")
-val MoodVeryHappy = MoodGreat
-@Deprecated("使用新的 5 级心情颜色")
-val MoodHappy = MoodGood
-@Deprecated("使用新的 5 级心情颜色")
-val MoodNeutral = MoodOkay
-@Deprecated("使用新的 5 级心情颜色")
-val MoodSad = MoodBad
-@Deprecated("使用新的 5 级心情颜色")
-val MoodVerySad = MoodAwful
-@Deprecated("使用新的 5 级心情颜色")
-val MoodAngry = Color(0xFFE91E63)
-@Deprecated("使用新的 5 级心情颜色")
-val MoodAnxious = Color(0xFF9C27B0)
-@Deprecated("使用新的 5 级心情颜色")
-val MoodExcited = Color(0xFF2196F3)
+// Mood Colors - 心情色板的唯一来源是 domain/model/MoodLevel（color 字段），
+// UI 层一律通过 MoodLevel.getColor() 取色，避免出现第二份色值。
 
 // Priority Colors
 val PriorityHigh = Color(0xFFF44336)
 val PriorityMedium = Color(0xFFFF9800)
 val PriorityLow = Color(0xFF4CAF50)
+
+/**
+ * 生活切面的可选色板（供用户为切面挑选标识色，Long 形式便于持久化）
+ */
+val FacetSwatchColors = listOf(
+    0xFF6750A4L,
+    0xFF006C4CL,
+    0xFFB3261EL,
+    0xFF1565C0L,
+    0xFF9C27B0L,
+    0xFFEF6C00L,
+    0xFF00838FL,
+    0xFF5D4037L
+)

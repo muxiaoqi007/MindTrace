@@ -16,6 +16,7 @@ class GetSelfPortraitUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(): SelfPortrait {
         val diaries = diaryRepository.getAllDiaries().first()
+            .filterNot { it.excludeFromAI }
         val memories = memoryRepository.getAllActiveMemories().first()
 
         val totalWords = diaries.sumOf { it.content.length }

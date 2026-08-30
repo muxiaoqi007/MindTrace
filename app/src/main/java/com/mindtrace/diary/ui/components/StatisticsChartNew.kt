@@ -67,6 +67,7 @@ fun MoodTrendLineChart(
         // 折线图
         val lineColor = MaterialTheme.colorScheme.primary
         val gridColor = MaterialTheme.colorScheme.outlineVariant
+        val dotCenterColor = MaterialTheme.colorScheme.surface
 
         Canvas(
             modifier = Modifier
@@ -126,7 +127,7 @@ fun MoodTrendLineChart(
                         center = Offset(x, y)
                     )
                     drawCircle(
-                        color = Color.White,
+                        color = dotCenterColor,
                         radius = 3f,
                         center = Offset(x, y)
                     )
@@ -186,13 +187,15 @@ fun MoodIndexGauge(
         label = "mood_index"
     )
 
+    // 心情指数颜色统一取自 MoodLevel 色板
     val gaugeColor = when {
-        moodIndex >= 80 -> Color(0xFF4CAF50)  // 绿色
-        moodIndex >= 60 -> Color(0xFF8BC34A)  // 浅绿
-        moodIndex >= 40 -> Color(0xFFFFC107)  // 黄色
-        moodIndex >= 20 -> Color(0xFFFF9800)  // 橙色
-        else -> Color(0xFFF44336)  // 红色
+        moodIndex >= 80 -> MoodLevel.GREAT.getColor()
+        moodIndex >= 60 -> MoodLevel.GOOD.getColor()
+        moodIndex >= 40 -> MoodLevel.OKAY.getColor()
+        moodIndex >= 20 -> MoodLevel.BAD.getColor()
+        else -> MoodLevel.AWFUL.getColor()
     }
+    val arcTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -209,7 +212,7 @@ fun MoodIndexGauge(
 
                 // 背景弧
                 drawArc(
-                    color = Color.Gray.copy(alpha = 0.2f),
+                    color = arcTrackColor,
                     startAngle = 135f,
                     sweepAngle = 270f,
                     useCenter = false,
@@ -362,5 +365,75 @@ private fun EmptyChartPlaceholderNew(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * 心情分布条形图（原 StatisticsChart.kt 中唯一在用的组件，已合并至此）
+ */
+@Composable
+fun MoodDistributionChart(
+    moodDistribution: Map<MoodLevel, Int>,
+    modifier: Modifier = Modifier
+) {
+    val iconPack = LocalMoodIconPack.current
+
+    if (moodDistribution.isEmpty()) {
+        EmptyChartPlaceholderNew(
+            text = "暂无心情数据",
+            modifier = modifier
+        )
+        return
+    }
+
+    val total = moodDistribution.values.sum().toFloat()
+
+    Column(modifier = modifier) {
+        Text(
+            text = "心情分布",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        moodDistribution.entries.sortedByDescending { it.value }.forEach { (mood, count) ->
+            val percentage = if (total > 0) count / total else 0f
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = iconPack.getIconRes(mood)),
+                    contentDescription = mood.label,
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(24.dp)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(percentage)
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(mood.getColor())
+                    )
+                }
+
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 8.dp).width(32.dp)
+                )
+            }
+        }
     }
 }

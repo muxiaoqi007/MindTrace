@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -35,28 +37,64 @@ import coil.request.ImageRequest
 import com.mindtrace.diary.core.util.DateUtils
 import com.mindtrace.diary.domain.model.TimelineItem
 import com.mindtrace.diary.ui.components.MoodChip
+import com.mindtrace.diary.ui.theme.Spacing
 import java.io.File
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onDiaryClick: (String) -> Unit,
-    onAddDiary: () -> Unit,
-    onAddFlashNote: () -> Unit,
-    onAddTodo: () -> Unit,
     onSearchClick: () -> Unit = {},
     onAIChatClick: () -> Unit = {},
+    onAskAIQuestion: (String) -> Unit = {},
+    onAISettingsClick: () -> Unit = {},
+    onDailyReceiptClick: () -> Unit = {},
+    onMemoryWalkClick: () -> Unit = {},
+    onDailyMaterialClick: () -> Unit = {},
+    onLifeFacetsClick: () -> Unit = {},
+    onTimeCapsulesClick: () -> Unit = {},
+    onWeeklyMagazineClick: () -> Unit = {},
+    onStorylinesClick: () -> Unit = {},
+    onPersonalLexiconClick: () -> Unit = {},
+    onOneSecondLifeClick: () -> Unit = {},
+    onMapFootprintsClick: () -> Unit = {},
+    onPrintArchiveClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showAllFeatures by remember { mutableStateOf(false) }
 
     val isTodoMode = uiState.selectedFilter == FilterType.TODO
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("时间线") },
+                title = {
+                    val now = LocalTime.now()
+                    Column {
+                        Text(
+                            text = greetingFor(now),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = todayLabel(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onAIChatClick) {
                         BadgedBox(
@@ -79,6 +117,7 @@ fun HomeScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             QuickInputBar(
                 value = uiState.quickInput,
@@ -89,64 +128,534 @@ fun HomeScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
+            contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.lg),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter chips
-            FilterChips(
-                selectedFilter = uiState.selectedFilter,
-                onFilterSelected = viewModel::setFilter,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            // —— 今日洞察 ——
+            item(key = "insight") {
+                DailyInsightCard(
+                    insight = uiState.dailyInsight,
+                    isLoading = uiState.insightLoading,
+                    insightFailed = uiState.insightFailed,
+                    isAIConfigured = uiState.isAIConfigured,
+                    onRefresh = { viewModel.refreshInsight() },
+                    onConfigureAI = onAISettingsClick,
+                    onAskAI = onAskAIQuestion
+                )
+            }
+
+            // —— 此刻灵感：按时间段推荐的功能入口 ——
+            item(key = "suggestions") {
+                SuggestionSection(
+                    onDailyReceiptClick = onDailyReceiptClick,
+                    onMemoryWalkClick = onMemoryWalkClick,
+                    onDailyMaterialClick = onDailyMaterialClick,
+                    onLifeFacetsClick = onLifeFacetsClick,
+                    onTimeCapsulesClick = onTimeCapsulesClick,
+                    onWeeklyMagazineClick = onWeeklyMagazineClick,
+                    onStorylinesClick = onStorylinesClick,
+                    onPersonalLexiconClick = onPersonalLexiconClick,
+                    onOneSecondLifeClick = onOneSecondLifeClick,
+                    onMapFootprintsClick = onMapFootprintsClick,
+                    onPrintArchiveClick = onPrintArchiveClick,
+                    onShowAll = { showAllFeatures = true }
+                )
+            }
+
+            // —— 筛选 ——
+            item(key = "filters") {
+                FilterChips(
+                    selectedFilter = uiState.selectedFilter,
+                    onFilterSelected = viewModel::setFilter,
+                    modifier = Modifier.padding(vertical = Spacing.sm)
+                )
+            }
 
             if (uiState.isLoading) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    CircularProgressIndicator()
+                item(key = "loading") {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             } else if (uiState.items.isEmpty()) {
-                EmptyState(modifier = Modifier.fillMaxSize())
+                item(key = "empty") {
+                    EmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.xxl)
+                    )
+                }
             } else {
                 // Group items by date
                 val groupedItems = uiState.items.groupBy { item ->
                     item.createdAt.toLocalDate()
                 }.toSortedMap(compareByDescending { it })
 
-                LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
-                ) {
-                    groupedItems.forEach { (date, items) ->
-                        // Date header
-                        item(key = "header_$date") {
-                            DateHeader(date = date)
-                        }
+                groupedItems.forEach { (date, items) ->
+                    // Date header
+                    item(key = "header_$date") {
+                        DateHeader(date = date)
+                    }
 
-                        // Timeline items for this date
-                        items(items, key = { it.id }) { item ->
-                            TimelineItemRow(
-                                item = item,
-                                isLast = item == items.last(),
-                                onDiaryClick = onDiaryClick,
-                                onToggleTodo = viewModel::toggleTodo,
-                                onDeleteTodo = viewModel::deleteTodo,
-                                onDeleteFlashNote = viewModel::deleteFlashNote
+                    // Timeline items for this date
+                    items(items, key = { it.id }) { item ->
+                        TimelineItemRow(
+                            item = item,
+                            isLast = item == items.last(),
+                            onDiaryClick = onDiaryClick,
+                            onToggleTodo = viewModel::toggleTodo,
+                            onDeleteTodo = viewModel::deleteTodo,
+                            onDeleteFlashNote = viewModel::deleteFlashNote
+                        )
+                    }
+
+                    // Spacer between date groups
+                    item(key = "spacer_$date") {
+                        Spacer(modifier = Modifier.height(Spacing.lg))
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAllFeatures) {
+        AllFeaturesSheet(
+            onDismiss = { showAllFeatures = false },
+            onDailyReceiptClick = onDailyReceiptClick,
+            onMemoryWalkClick = onMemoryWalkClick,
+            onDailyMaterialClick = onDailyMaterialClick,
+            onLifeFacetsClick = onLifeFacetsClick,
+            onTimeCapsulesClick = onTimeCapsulesClick,
+            onWeeklyMagazineClick = onWeeklyMagazineClick,
+            onStorylinesClick = onStorylinesClick,
+            onPersonalLexiconClick = onPersonalLexiconClick,
+            onOneSecondLifeClick = onOneSecondLifeClick,
+            onMapFootprintsClick = onMapFootprintsClick,
+            onPrintArchiveClick = onPrintArchiveClick
+        )
+    }
+}
+
+private fun greetingFor(time: LocalTime): String = when (time.hour) {
+    in 5..10 -> "早上好"
+    in 11..12 -> "中午好"
+    in 13..17 -> "下午好"
+    in 18..23 -> "晚上好"
+    else -> "夜深了"
+}
+
+private fun todayLabel(): String {
+    val today = LocalDate.now()
+    return "${today.monthValue}月${today.dayOfMonth}日 · ${DateUtils.getChineseDayOfWeek(today)}"
+}
+
+// ---------- 今日洞察 ----------
+
+@Composable
+private fun DailyInsightCard(
+    insight: com.mindtrace.diary.domain.model.DailyInsight?,
+    isLoading: Boolean,
+    insightFailed: Boolean,
+    isAIConfigured: Boolean,
+    onRefresh: () -> Unit,
+    onConfigureAI: () -> Unit,
+    onAskAI: (String) -> Unit
+) {
+    // 已配置但生成失败且无缓存时，保留卡片给用户重试入口
+
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = Spacing.md)
+    ) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = "今日洞察",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(Modifier.weight(1f))
+                if (isAIConfigured) {
+                    IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp), enabled = !isLoading) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "换一条洞察",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            when {
+                isLoading -> {
+                    repeat(2) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(14.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f),
+                                    MaterialTheme.shapes.small
+                                )
+                        )
+                        Spacer(Modifier.height(Spacing.xs))
+                    }
+                    Text(
+                        text = "正在回顾你最近的日记…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                insight != null -> {
+                    Text(
+                        text = insight.observation,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                    )
+                    Spacer(Modifier.height(Spacing.md))
+                    Surface(
+                        onClick = { onAskAI(insight.question) },
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                        ) {
+                            Text(
+                                text = insight.question,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                Icons.Default.ArrowForward,
+                                contentDescription = "去和 AI 聊聊",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-
-                        // Spacer between date groups
-                        item(key = "spacer_$date") {
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                    }
+                }
+                insightFailed -> {
+                    Text(
+                        text = "这次没能生成洞察，可能网络不佳或日记还太少。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    TextButton(onClick = onRefresh) {
+                        Text("再试一次")
+                    }
+                }
+                else -> {
+                    Text(
+                        text = "配置 AI 伙伴后，每天会基于你的日记生成一条今日洞察，陪你把想法聊开。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    TextButton(onClick = onConfigureAI) {
+                        Text("去配置")
                     }
                 }
             }
         }
     }
 }
+
+// ---------- 此刻灵感 / 功能入口 ----------
+
+private enum class FeatureId {
+    DAILY_RECEIPT, MEMORY_WALK, DAILY_MATERIAL, LIFE_FACETS, TIME_CAPSULES,
+    WEEKLY_MAGAZINE, STORYLINES, PERSONAL_LEXICON, ONE_SECOND_LIFE,
+    MAP_FOOTPRINTS, PRINT_ARCHIVE
+}
+
+/** 按时间段挑选最贴合当前场景的功能，全天兜底 */
+private fun recommendedFeatures(hour: Int, dayOfWeek: DayOfWeek): List<FeatureId> = when (hour) {
+    in 5..10 -> listOf(FeatureId.DAILY_MATERIAL, FeatureId.LIFE_FACETS, FeatureId.MEMORY_WALK)
+    in 11..13 -> listOf(FeatureId.MEMORY_WALK, FeatureId.ONE_SECOND_LIFE, FeatureId.DAILY_MATERIAL)
+    in 14..17 -> listOf(FeatureId.MEMORY_WALK, FeatureId.STORYLINES, FeatureId.ONE_SECOND_LIFE)
+    in 18..23 -> {
+        if (dayOfWeek == DayOfWeek.SUNDAY) {
+            listOf(FeatureId.DAILY_RECEIPT, FeatureId.WEEKLY_MAGAZINE, FeatureId.MEMORY_WALK)
+        } else {
+            listOf(FeatureId.DAILY_RECEIPT, FeatureId.MEMORY_WALK, FeatureId.TIME_CAPSULES)
+        }
+    }
+    else -> listOf(FeatureId.MEMORY_WALK, FeatureId.TIME_CAPSULES, FeatureId.DAILY_RECEIPT)
+}
+
+@Composable
+private fun SuggestionSection(
+    onDailyReceiptClick: () -> Unit,
+    onMemoryWalkClick: () -> Unit,
+    onDailyMaterialClick: () -> Unit,
+    onLifeFacetsClick: () -> Unit,
+    onTimeCapsulesClick: () -> Unit,
+    onWeeklyMagazineClick: () -> Unit,
+    onStorylinesClick: () -> Unit,
+    onPersonalLexiconClick: () -> Unit,
+    onOneSecondLifeClick: () -> Unit,
+    onMapFootprintsClick: () -> Unit,
+    onPrintArchiveClick: () -> Unit,
+    onShowAll: () -> Unit
+) {
+    val allEntries = rememberFeatureEntries(
+        onDailyReceiptClick, onMemoryWalkClick, onDailyMaterialClick, onLifeFacetsClick,
+        onTimeCapsulesClick, onWeeklyMagazineClick, onStorylinesClick, onPersonalLexiconClick,
+        onOneSecondLifeClick, onMapFootprintsClick, onPrintArchiveClick
+    )
+    val recommended = remember(allEntries) {
+        val now = LocalTime.now()
+        recommendedFeatures(now.hour, LocalDate.now().dayOfWeek).mapNotNull { allEntries[it] }
+    }
+
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "此刻灵感",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onShowAll, contentPadding = PaddingValues(horizontal = Spacing.sm)) {
+                Text("全部功能", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            items(recommended.size) { index ->
+                FeatureSuggestionCard(entry = recommended[index])
+            }
+            item {
+                FeatureSuggestionCard(
+                    entry = FeatureEntry("全部功能", "11 个灵感工具", Icons.Default.Widgets) { onShowAll() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberFeatureEntries(
+    onDailyReceiptClick: () -> Unit,
+    onMemoryWalkClick: () -> Unit,
+    onDailyMaterialClick: () -> Unit,
+    onLifeFacetsClick: () -> Unit,
+    onTimeCapsulesClick: () -> Unit,
+    onWeeklyMagazineClick: () -> Unit,
+    onStorylinesClick: () -> Unit,
+    onPersonalLexiconClick: () -> Unit,
+    onOneSecondLifeClick: () -> Unit,
+    onMapFootprintsClick: () -> Unit,
+    onPrintArchiveClick: () -> Unit
+): Map<FeatureId, FeatureEntry> = mapOf(
+    FeatureId.DAILY_RECEIPT to FeatureEntry("每日小票", "今天的账单式回顾", Icons.AutoMirrored.Filled.ReceiptLong, onDailyReceiptClick),
+    FeatureId.MEMORY_WALK to FeatureEntry("记忆漫步", "随机回到某一天", Icons.Default.Explore, onMemoryWalkClick),
+    FeatureId.DAILY_MATERIAL to FeatureEntry("今日素材篮", "把今天拼成一篇日记", Icons.Default.Inventory2, onDailyMaterialClick),
+    FeatureId.LIFE_FACETS to FeatureEntry("生活切面", "记录并发现影响心情的因素", Icons.Default.Tune, onLifeFacetsClick),
+    FeatureId.TIME_CAPSULES to FeatureEntry("时光胶囊", "给未来的自己写封信", Icons.Default.LockClock, onTimeCapsulesClick),
+    FeatureId.WEEKLY_MAGAZINE to FeatureEntry("每周生活杂志", "一周的封面故事", Icons.Default.Newspaper, onWeeklyMagazineClick),
+    FeatureId.STORYLINES to FeatureEntry("人生故事线", "从标签里发现人生主线", Icons.Default.Timeline, onStorylinesClick),
+    FeatureId.PERSONAL_LEXICON to FeatureEntry("我的词典", "你的专属名词表", Icons.Default.MenuBook, onPersonalLexiconClick),
+    FeatureId.ONE_SECOND_LIFE to FeatureEntry("一秒人生", "每天一秒，连成电影", Icons.Default.MovieCreation, onOneSecondLifeClick),
+    FeatureId.MAP_FOOTPRINTS to FeatureEntry("地图足迹", "去过的地方都在这", Icons.Default.Map, onMapFootprintsClick),
+    FeatureId.PRINT_ARCHIVE to FeatureEntry("打印归档", "把日记排成纸质书", Icons.Default.Print, onPrintArchiveClick)
+)
+
+private data class FeatureEntry(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun FeatureSuggestionCard(entry: FeatureEntry) {
+    Card(
+        onClick = entry.onClick,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        modifier = Modifier.width(148.dp)
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Icon(
+                    entry.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                text = entry.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = entry.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AllFeaturesSheet(
+    onDismiss: () -> Unit,
+    onDailyReceiptClick: () -> Unit,
+    onMemoryWalkClick: () -> Unit,
+    onDailyMaterialClick: () -> Unit,
+    onLifeFacetsClick: () -> Unit,
+    onTimeCapsulesClick: () -> Unit,
+    onWeeklyMagazineClick: () -> Unit,
+    onStorylinesClick: () -> Unit,
+    onPersonalLexiconClick: () -> Unit,
+    onOneSecondLifeClick: () -> Unit,
+    onMapFootprintsClick: () -> Unit,
+    onPrintArchiveClick: () -> Unit
+) {
+    val entries = rememberFeatureEntries(
+        onDailyReceiptClick, onMemoryWalkClick, onDailyMaterialClick, onLifeFacetsClick,
+        onTimeCapsulesClick, onWeeklyMagazineClick, onStorylinesClick, onPersonalLexiconClick,
+        onOneSecondLifeClick, onMapFootprintsClick, onPrintArchiveClick
+    )
+
+    val groups = listOf(
+        "回顾今天" to listOf(FeatureId.DAILY_RECEIPT, FeatureId.MEMORY_WALK, FeatureId.WEEKLY_MAGAZINE),
+        "收集此刻" to listOf(FeatureId.DAILY_MATERIAL, FeatureId.LIFE_FACETS, FeatureId.ONE_SECOND_LIFE),
+        "长期视角" to listOf(FeatureId.TIME_CAPSULES, FeatureId.STORYLINES, FeatureId.MAP_FOOTPRINTS),
+        "整理归档" to listOf(FeatureId.PERSONAL_LEXICON, FeatureId.PRINT_ARCHIVE)
+    )
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg)
+                .padding(bottom = Spacing.xxl)
+        ) {
+            Text(
+                text = "全部功能",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(Spacing.lg))
+            groups.forEach { (groupTitle, ids) ->
+                Text(
+                    text = groupTitle,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = Spacing.sm)
+                )
+                ids.chunked(3).forEach { rowIds ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = Spacing.sm)
+                    ) {
+                        rowIds.forEach { id ->
+                            val entry = entries.getValue(id)
+                            FeatureSheetCell(
+                                entry = entry,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        repeat(3 - rowIds.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(Spacing.md))
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureSheetCell(
+    entry: FeatureEntry,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = {
+            entry.onClick()
+        },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        modifier = modifier
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Spacing.md, horizontal = Spacing.xs)
+        ) {
+            Icon(
+                entry.icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = entry.title,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// ---------- 时间线 ----------
 
 @Composable
 private fun DateHeader(
@@ -166,7 +675,7 @@ private fun DateHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .padding(vertical = Spacing.md)
     ) {
         Text(
             text = displayText,
@@ -174,14 +683,14 @@ private fun DateHeader(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(Spacing.sm))
         Text(
             text = weekDay,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (date.year != today.year) {
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm))
             Text(
                 text = "${date.year}年",
                 style = MaterialTheme.typography.bodySmall,
@@ -245,7 +754,7 @@ private fun TimelineItemRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             // Dot
             Box(
@@ -266,13 +775,13 @@ private fun TimelineItemRow(
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Spacing.md))
 
         // Content card with swipe to dismiss
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(bottom = if (isLast) 0.dp else 12.dp)
+                .padding(bottom = if (isLast) 0.dp else Spacing.md)
         ) {
             if (canSwipe) {
                 SwipeToDismissBox(
@@ -290,14 +799,14 @@ private fun TimelineItemRow(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(color, RoundedCornerShape(12.dp))
+                                .background(color, MaterialTheme.shapes.medium)
                                 .padding(horizontal = 20.dp),
                             contentAlignment = Alignment.CenterEnd
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "删除",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onError
                             )
                         }
                     }
@@ -347,7 +856,7 @@ private fun QuickInputBar(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = Spacing.lg, vertical = Spacing.sm)
                 .imePadding()
         ) {
             OutlinedTextField(
@@ -355,7 +864,7 @@ private fun QuickInputBar(
                 onValueChange = onValueChange,
                 placeholder = { Text(placeholder) },
                 singleLine = true,
-                shape = RoundedCornerShape(24.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                 ),
@@ -398,7 +907,6 @@ private fun QuickInputBar(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterChips(
     selectedFilter: FilterType,
@@ -406,7 +914,7 @@ private fun FilterChips(
     modifier: Modifier = Modifier
 ) {
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         modifier = modifier
     ) {
         items(FilterType.entries) { filter ->
@@ -428,7 +936,6 @@ private fun FilterChips(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DiaryCard(
     item: TimelineItem.DiaryItem,
@@ -442,7 +949,7 @@ private fun DiaryCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -459,7 +966,7 @@ private fun DiaryCard(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(Spacing.xs))
                     Text(
                         text = item.title.ifEmpty { "日记" },
                         style = MaterialTheme.typography.titleSmall,
@@ -474,7 +981,7 @@ private fun DiaryCard(
             }
 
             if (item.contentPreview.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
                 Text(
                     text = item.contentPreview,
                     style = MaterialTheme.typography.bodySmall,
@@ -485,7 +992,7 @@ private fun DiaryCard(
             }
 
             item.firstImage?.let { imagePath ->
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(File(imagePath))
@@ -496,14 +1003,13 @@ private fun DiaryCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FlashNoteCard(
     item: TimelineItem.FlashNoteItem,
@@ -520,7 +1026,7 @@ private fun FlashNoteCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -531,7 +1037,7 @@ private fun FlashNoteCard(
                     tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(14.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(Spacing.xs))
                 Text(
                     text = "闪念",
                     style = MaterialTheme.typography.labelSmall,
@@ -539,7 +1045,7 @@ private fun FlashNoteCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
                 text = item.content,
@@ -549,7 +1055,7 @@ private fun FlashNoteCard(
             )
 
             item.firstImage?.let { imagePath ->
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(File(imagePath))
@@ -559,14 +1065,14 @@ private fun FlashNoteCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(60.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(MaterialTheme.shapes.small)
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TodoCard(
     item: TimelineItem.TodoItem,
@@ -590,7 +1096,7 @@ private fun TodoCard(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm)
         ) {
             Checkbox(
                 checked = item.isCompleted,
@@ -661,13 +1167,13 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(64.dp)
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
         Text(
             text = "还没有任何记录",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         Text(
             text = "在下方输入框记录你的第一个闪念吧",
             style = MaterialTheme.typography.bodyMedium,

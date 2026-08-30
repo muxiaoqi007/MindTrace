@@ -11,6 +11,11 @@ import com.mindtrace.diary.core.database.dao.DiaryDao
 import com.mindtrace.diary.core.database.dao.FlashNoteDao
 import com.mindtrace.diary.core.database.dao.MoodDao
 import com.mindtrace.diary.core.database.dao.TodoDao
+import com.mindtrace.diary.core.database.dao.LifeFacetDao
+import com.mindtrace.diary.core.database.dao.TimeCapsuleDao
+import com.mindtrace.diary.core.database.dao.StorylineDao
+import com.mindtrace.diary.core.database.dao.LexiconDao
+import com.mindtrace.diary.core.database.dao.DailyMediaPickDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,7 +45,14 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
                 AppDatabase.MIGRATION_7_8,
-                AppDatabase.MIGRATION_8_9
+                AppDatabase.MIGRATION_8_9,
+                AppDatabase.MIGRATION_9_10,
+                AppDatabase.MIGRATION_10_11,
+                AppDatabase.MIGRATION_11_12,
+                AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_15,
+                AppDatabase.MIGRATION_15_16
             )
             .build()
     }
@@ -84,4 +96,19 @@ object DatabaseModule {
     fun provideAiReviewDao(database: AppDatabase): AiReviewDao {
         return database.aiReviewDao()
     }
+
+    @Provides
+    fun provideLifeFacetDao(database: AppDatabase): LifeFacetDao = database.lifeFacetDao()
+
+    @Provides
+    fun provideTimeCapsuleDao(database: AppDatabase): TimeCapsuleDao = database.timeCapsuleDao()
+
+    @Provides
+    fun provideStorylineDao(database: AppDatabase): StorylineDao = database.storylineDao()
+
+    @Provides
+    fun provideLexiconDao(database: AppDatabase): LexiconDao = database.lexiconDao()
+
+    @Provides
+    fun provideDailyMediaPickDao(database: AppDatabase): DailyMediaPickDao = database.dailyMediaPickDao()
 }

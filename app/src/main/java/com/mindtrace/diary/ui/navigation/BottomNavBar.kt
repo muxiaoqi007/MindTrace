@@ -28,32 +28,15 @@ fun BottomNavBar(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val items = listOf(
+    // 与 Screen.bottomNavItems 保持单一来源，避免两处定义漂移
+    val items = Screen.bottomNavItems.map {
         BottomNavItem(
-            route = "home",
-            title = "首页",
-            selectedIcon = Icons.Filled.Home,
-            unselectedIcon = Icons.Outlined.Home
-        ),
-        BottomNavItem(
-            route = "calendar",
-            title = "日历",
-            selectedIcon = Icons.Filled.CalendarMonth,
-            unselectedIcon = Icons.Outlined.CalendarMonth
-        ),
-        BottomNavItem(
-            route = "statistics",
-            title = "统计",
-            selectedIcon = Icons.Filled.BarChart,
-            unselectedIcon = Icons.Outlined.BarChart
-        ),
-        BottomNavItem(
-            route = "settings",
-            title = "设置",
-            selectedIcon = Icons.Filled.Settings,
-            unselectedIcon = Icons.Outlined.Settings
+            route = it.route,
+            title = it.title,
+            selectedIcon = it.selectedIcon ?: Icons.Filled.Circle,
+            unselectedIcon = it.unselectedIcon ?: Icons.Outlined.Circle
         )
-    )
+    }
 
     NavigationBar(modifier = modifier) {
         items.forEach { item ->

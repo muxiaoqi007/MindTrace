@@ -36,3 +36,6 @@ captures/
 
 # 项目临时文件
 ui/iShot_*.png
+
+# 工具本地存储（不入库）
+viking-storage/

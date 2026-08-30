@@ -11,6 +11,8 @@ import com.mindtrace.diary.core.database.entity.DiaryEntity
 import com.mindtrace.diary.core.database.entity.FlashNoteEntity
 import com.mindtrace.diary.core.database.entity.TodoEntity
 import com.mindtrace.diary.core.datastore.SettingsDataStore
+import com.mindtrace.diary.domain.model.ExportData
+import com.mindtrace.diary.domain.usecase.backup.PersonalizationBackupDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -26,6 +28,7 @@ class SyncManager @Inject constructor(
     private val diaryDao: DiaryDao,
     private val flashNoteDao: FlashNoteDao,
     private val todoDao: TodoDao,
+    private val personalization: PersonalizationBackupDataSource,
     private val settingsDataStore: SettingsDataStore
 ) {
     private val gson = Gson()
@@ -40,10 +43,12 @@ class SyncManager @Inject constructor(
             val localDiaries = diaryDao.getAllDiariesForSync()
             val localFlashNotes = flashNoteDao.getAllFlashNotesForSync()
             val localTodos = todoDao.getAllTodosForSync()
+            val localPersonalization = personalization.appendTo(ExportData(version = 3))
 
             val remoteDiaries = downloadSnapshot<DiaryEntity>(DIARIES_PATH, DIARY_LIST_TYPE).records
             val remoteFlashNotes = downloadSnapshot<FlashNoteEntity>(FLASH_NOTES_PATH, FLASH_NOTE_LIST_TYPE).records
             val remoteTodos = downloadSnapshot<TodoEntity>(TODOS_PATH, TODO_LIST_TYPE).records
+            val remotePersonalization = downloadPersonalization().records
 
             val mergedDiaries = SyncMergePolicy.merge(
                 localDiaries,
@@ -66,6 +71,7 @@ class SyncManager @Inject constructor(
                 TodoEntity::updatedAt,
                 TodoEntity::isDeleted
             )
+            val mergedPersonalization = PersonalizationSyncPolicy.merge(localPersonalization, remotePersonalization)
 
             val uploadedCount = countUnsynced(localDiaries) +
                 countUnsynced(localFlashNotes) +
@@ -79,12 +85,14 @@ class SyncManager @Inject constructor(
             webDavClient.uploadFile(DIARIES_PATH, gson.toJson(mergedDiaries).toByteArray()).getOrThrow()
             webDavClient.uploadFile(FLASH_NOTES_PATH, gson.toJson(mergedFlashNotes).toByteArray()).getOrThrow()
             webDavClient.uploadFile(TODOS_PATH, gson.toJson(mergedTodos).toByteArray()).getOrThrow()
+            webDavClient.uploadFile(PERSONALIZATION_PATH, gson.toJson(mergedPersonalization).toByteArray()).getOrThrow()
 
             val syncTime = System.currentTimeMillis()
             database.withTransaction {
                 if (mergedDiaries.isNotEmpty()) diaryDao.insertDiaries(mergedDiaries)
                 if (mergedFlashNotes.isNotEmpty()) flashNoteDao.insertFlashNotes(mergedFlashNotes)
                 if (mergedTodos.isNotEmpty()) todoDao.insertTodos(mergedTodos)
+                personalization.restore(mergedPersonalization)
                 mergedDiaries.forEach { diaryDao.updateSyncTime(it.id, syncTime) }
                 mergedFlashNotes.forEach { flashNoteDao.updateSyncTime(it.id, syncTime) }
                 mergedTodos.forEach { todoDao.updateSyncTime(it.id, syncTime) }
@@ -108,7 +116,8 @@ class SyncManager @Inject constructor(
             val diaries = downloadSnapshot<DiaryEntity>(DIARIES_PATH, DIARY_LIST_TYPE)
             val flashNotes = downloadSnapshot<FlashNoteEntity>(FLASH_NOTES_PATH, FLASH_NOTE_LIST_TYPE)
             val todos = downloadSnapshot<TodoEntity>(TODOS_PATH, TODO_LIST_TYPE)
-            if (!diaries.found && !flashNotes.found && !todos.found) {
+            val personalizationSnapshot = downloadPersonalization()
+            if (!diaries.found && !flashNotes.found && !todos.found && !personalizationSnapshot.found) {
                 return@withContext RestoreResult.Error("云端没有可恢复的 MindTrace 数据")
             }
 
@@ -124,12 +133,16 @@ class SyncManager @Inject constructor(
                 if (diaries.records.isNotEmpty()) diaryDao.insertDiaries(diaries.records)
                 if (flashNotes.records.isNotEmpty()) flashNoteDao.insertFlashNotes(flashNotes.records)
                 if (todos.records.isNotEmpty()) todoDao.insertTodos(todos.records)
+                if (personalizationSnapshot.found) personalization.restore(personalizationSnapshot.records)
                 diaries.records.forEach { diaryDao.updateSyncTime(it.id, restoreTime) }
                 flashNotes.records.forEach { flashNoteDao.updateSyncTime(it.id, restoreTime) }
                 todos.records.forEach { todoDao.updateSyncTime(it.id, restoreTime) }
             }
             settingsDataStore.setLastSyncTime(restoreTime)
-            RestoreResult.Success(diaries.records.size + flashNotes.records.size + todos.records.size)
+            RestoreResult.Success(
+                diaries.records.size + flashNotes.records.size + todos.records.size +
+                    personalizationRecordCount(personalizationSnapshot.records)
+            )
         } catch (e: Exception) {
             RestoreResult.Error(e.message ?: "恢复失败")
         }
@@ -153,6 +166,25 @@ class SyncManager @Inject constructor(
         }
     }
 
+    private suspend fun downloadPersonalization(): RemotePersonalization =
+        when (val result = webDavClient.downloadFile(PERSONALIZATION_PATH)) {
+            is RemoteFileResult.Found -> {
+                val value = try {
+                    gson.fromJson(String(result.data, Charsets.UTF_8), ExportData::class.java) ?: ExportData(version = 3)
+                } catch (e: Exception) {
+                    throw IOException("云端个性化数据格式错误", e)
+                }
+                RemotePersonalization(found = true, records = value)
+            }
+            RemoteFileResult.NotFound -> RemotePersonalization(found = false, records = ExportData(version = 3))
+            is RemoteFileResult.Failure -> throw IOException("下载云端个性化数据失败：${result.message}", result.cause)
+        }
+
+    private fun personalizationRecordCount(data: ExportData): Int =
+        data.lifeFacets.orEmpty().size + data.facetCheckIns.orEmpty().size + data.timeCapsules.orEmpty().size +
+            data.storylines.orEmpty().size + data.storylineSources.orEmpty().size + data.lexiconEntries.orEmpty().size +
+            data.lexiconEvidence.orEmpty().size + data.dailyMediaPicks.orEmpty().size
+
     private fun <T> countChanged(local: List<T>, merged: List<T>, id: (T) -> String): Int {
         val localById = local.associateBy(id)
         return merged.count { record -> localById[id(record)] != record }
@@ -174,11 +206,13 @@ class SyncManager @Inject constructor(
     }
 
     private data class RemoteSnapshot<T>(val found: Boolean, val records: List<T>)
+    private data class RemotePersonalization(val found: Boolean, val records: ExportData)
 
     private companion object {
         const val DIARIES_PATH = "/diaries.json"
         const val FLASH_NOTES_PATH = "/flash_notes.json"
         const val TODOS_PATH = "/todos.json"
+        const val PERSONALIZATION_PATH = "/personalization.json"
         val DIARY_LIST_TYPE: Type = object : TypeToken<List<DiaryEntity>>() {}.type
         val FLASH_NOTE_LIST_TYPE: Type = object : TypeToken<List<FlashNoteEntity>>() {}.type
         val TODO_LIST_TYPE: Type = object : TypeToken<List<TodoEntity>>() {}.type

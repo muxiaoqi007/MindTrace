@@ -68,6 +68,9 @@ class AnalyzeDiaryUseCase @Inject constructor(
             // 3. 获取日记
             val diary = diaryRepository.getDiaryById(diaryId)
                 ?: return Result.failure(Exception("日记不存在"))
+            if (diary.excludeFromAI) {
+                return Result.success(null)
+            }
 
             // 4. 如果日记内容太短，跳过分析
             if (diary.content.length < 20) {

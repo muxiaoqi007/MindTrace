@@ -12,15 +12,22 @@ class SaveFlashNoteUseCase @Inject constructor(
     suspend operator fun invoke(
         id: String? = null,
         content: String,
-        images: List<String> = emptyList()
+        images: List<String> = emptyList(),
+        excludeFromAI: Boolean? = null,
+        excludeFromResurfacing: Boolean? = null
     ) {
         val now = LocalDateTime.now()
+        val existing = id?.let { flashNoteRepository.getFlashNoteById(it) }
         val flashNote = FlashNote(
             id = id ?: UUID.randomUUID().toString(),
             content = content,
             images = images,
-            createdAt = if (id == null) now else flashNoteRepository.getFlashNoteById(id)?.createdAt ?: now,
-            updatedAt = now
+            createdAt = existing?.createdAt ?: now,
+            updatedAt = now,
+            excludeFromAI = excludeFromAI ?: existing?.excludeFromAI ?: false,
+            excludeFromResurfacing = excludeFromResurfacing
+                ?: existing?.excludeFromResurfacing
+                ?: false
         )
 
         if (id == null) {
