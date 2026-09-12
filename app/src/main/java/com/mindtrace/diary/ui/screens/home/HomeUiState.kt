@@ -1,6 +1,7 @@
 package com.mindtrace.diary.ui.screens.home
 
 import com.mindtrace.diary.domain.model.DailyInsight
+import com.mindtrace.diary.domain.model.MorningBrief
 import com.mindtrace.diary.domain.model.TimelineItem
 
 data class HomeUiState(
@@ -16,6 +17,15 @@ data class HomeUiState(
     val insightLoading: Boolean = false,
     /** 生成失败时置位，用于在卡片内提供重试入口 */
     val insightFailed: Boolean = false,
+    /** 晨间简报（仅早晨时段在首页展示，其余时段仍展示今日洞察） */
+    val morningBrief: MorningBrief? = null,
+    val briefLoading: Boolean = false,
+    /** 简报完全生成失败（连本地拼装也失败）时置位 */
+    val briefFailed: Boolean = false,
+    /** 今天在简报卡写下的"每日意图"，当晚由深夜回信回收对照 */
+    val todayIntention: String? = null,
+    /** 底部快捷输入是否处于"问 AI"模式 */
+    val isAskAIMode: Boolean = false,
     val isAIConfigured: Boolean = false,
     val error: String? = null
 )

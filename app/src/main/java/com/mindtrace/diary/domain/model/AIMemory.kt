@@ -10,6 +10,8 @@ data class AIMemory(
     val type: MemoryType,
     val category: MemoryCategory,
     val content: String,
+    /** 关键人物/事物关键词（如"小雅"），RELATIONSHIP 类用于人物召回 */
+    val subject: String = "",
     val source: String? = null,
     val importance: Float = 0.5f,
     val isActive: Boolean = true,

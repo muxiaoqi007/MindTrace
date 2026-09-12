@@ -43,6 +43,15 @@ class SettingsDataStore @Inject constructor(
         val MIDNIGHT_REVIEW_HOUR = intPreferencesKey("midnight_review_hour")
         val MIDNIGHT_REVIEW_MINUTE = intPreferencesKey("midnight_review_minute")
         val MIDNIGHT_REVIEW_PERSONA = stringPreferencesKey("midnight_review_persona")
+        // 晨间简报配置
+        val MORNING_BRIEF_ENABLED = booleanPreferencesKey("morning_brief_enabled")
+        val MORNING_BRIEF_HOUR = intPreferencesKey("morning_brief_hour")
+        val MORNING_BRIEF_MINUTE = intPreferencesKey("morning_brief_minute")
+        // 主动关怀配置与频控（每天最多一条）
+        val PROACTIVE_NUDGE_ENABLED = booleanPreferencesKey("proactive_nudge_enabled")
+        val PROACTIVE_NUDGE_HOUR = intPreferencesKey("proactive_nudge_hour")
+        val PROACTIVE_NUDGE_MINUTE = intPreferencesKey("proactive_nudge_minute")
+        val PROACTIVE_LAST_NUDGE_DATE = stringPreferencesKey("proactive_last_nudge_date")
         // 沉默唤醒配置
         val SILENCE_BREAK_ENABLED = booleanPreferencesKey("silence_break_enabled")
         val SILENCE_BREAK_HOURS = intPreferencesKey("silence_break_hours")
@@ -71,6 +80,11 @@ class SettingsDataStore @Inject constructor(
         // 首页"今日洞察"缓存（按天失效）
         val DAILY_INSIGHT_JSON = stringPreferencesKey("daily_insight_json")
         val DAILY_INSIGHT_DATE = stringPreferencesKey("daily_insight_date")
+        // 首页"晨间简报"缓存（按天失效）
+        val MORNING_BRIEF_JSON = stringPreferencesKey("morning_brief_json")
+        // 每日意图（晨间简报里写下，当晚回信回收对照）
+        val DAILY_INTENTION_TEXT = stringPreferencesKey("daily_intention_text")
+        val DAILY_INTENTION_DATE = stringPreferencesKey("daily_intention_date")
         // 自我画像 AI 叙事缓存
         val SELF_NARRATIVE_JSON = stringPreferencesKey("self_narrative_json")
         val SELF_NARRATIVE_TIME = longPreferencesKey("self_narrative_time")
@@ -213,6 +227,69 @@ class SettingsDataStore @Inject constructor(
     suspend fun setMidnightReviewEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.MIDNIGHT_REVIEW_ENABLED] = enabled
+        }
+    }
+
+    // 晨间简报配置
+    val morningBriefConfig: Flow<MorningBriefConfig> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { preferences ->
+            MorningBriefConfig(
+                enabled = preferences[Keys.MORNING_BRIEF_ENABLED] ?: false,
+                hour = preferences[Keys.MORNING_BRIEF_HOUR] ?: 8,
+                minute = preferences[Keys.MORNING_BRIEF_MINUTE] ?: 0
+            )
+        }
+
+    suspend fun setMorningBriefConfig(config: MorningBriefConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.MORNING_BRIEF_ENABLED] = config.enabled
+            preferences[Keys.MORNING_BRIEF_HOUR] = config.hour
+            preferences[Keys.MORNING_BRIEF_MINUTE] = config.minute
+        }
+    }
+
+    suspend fun setMorningBriefEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.MORNING_BRIEF_ENABLED] = enabled
+        }
+    }
+
+    // 主动关怀配置
+    val proactiveNudgeConfig: Flow<ProactiveNudgeConfig> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { preferences ->
+            ProactiveNudgeConfig(
+                enabled = preferences[Keys.PROACTIVE_NUDGE_ENABLED] ?: false,
+                hour = preferences[Keys.PROACTIVE_NUDGE_HOUR] ?: 20,
+                minute = preferences[Keys.PROACTIVE_NUDGE_MINUTE] ?: 0
+            )
+        }
+
+    suspend fun setProactiveNudgeConfig(config: ProactiveNudgeConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.PROACTIVE_NUDGE_ENABLED] = config.enabled
+            preferences[Keys.PROACTIVE_NUDGE_HOUR] = config.hour
+            preferences[Keys.PROACTIVE_NUDGE_MINUTE] = config.minute
+        }
+    }
+
+    suspend fun setProactiveNudgeEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.PROACTIVE_NUDGE_ENABLED] = enabled
+        }
+    }
+
+    /** 最近一次主动关怀的日期（ISO 字符串）；null 表示从未发过 */
+    suspend fun getProactiveLastNudgeDate(): LocalDate? {
+        val preferences = context.dataStore.data.firstOrNull() ?: return null
+        val value = preferences[Keys.PROACTIVE_LAST_NUDGE_DATE] ?: return null
+        return runCatching { LocalDate.parse(value) }.getOrNull()
+    }
+
+    suspend fun setProactiveLastNudgeDate(date: LocalDate) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.PROACTIVE_LAST_NUDGE_DATE] = date.toString()
         }
     }
 
@@ -380,6 +457,36 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
+    // 首页"晨间简报"缓存：只存纯类型字段与 ISO 日期，避免 Gson 序列化 java.time
+    suspend fun getMorningBriefCache(forDate: LocalDate): MorningBriefCache? {
+        val preferences = context.dataStore.data.firstOrNull() ?: return null
+        if (preferences[Keys.MORNING_BRIEF_JSON] == null) return null
+        val cache = runCatching {
+            Gson().fromJson(preferences[Keys.MORNING_BRIEF_JSON], MorningBriefCache::class.java)
+        }.getOrNull() ?: return null
+        return cache.takeIf { it.forDate == forDate.toString() }
+    }
+
+    suspend fun setMorningBriefCache(cache: MorningBriefCache) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.MORNING_BRIEF_JSON] = Gson().toJson(cache)
+        }
+    }
+
+    // 每日意图：按天存储，跨天自动视为空
+    suspend fun getDailyIntention(forDate: LocalDate): String? {
+        val preferences = context.dataStore.data.firstOrNull() ?: return null
+        if (preferences[Keys.DAILY_INTENTION_DATE] != forDate.toString()) return null
+        return preferences[Keys.DAILY_INTENTION_TEXT]?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun setDailyIntention(forDate: LocalDate, text: String) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.DAILY_INTENTION_TEXT] = text
+            preferences[Keys.DAILY_INTENTION_DATE] = forDate.toString()
+        }
+    }
+
     // 自我画像 AI 叙事缓存
     suspend fun getSelfNarrativeCache(): SelfNarrativeCache? {
         val preferences = context.dataStore.data.firstOrNull() ?: return null
@@ -403,6 +510,21 @@ data class DailyInsightCache(
     val observation: String,
     val question: String,
     val forDate: String
+)
+
+/** 晨间简报的 DataStore 缓存体（不含 java.time 类型，日期均为 ISO 字符串） */
+data class MorningBriefCache(
+    val greeting: String,
+    val observation: String?,
+    val question: String?,
+    val streakDays: Int = 0,
+    val pendingTodoCount: Int = 0,
+    val pendingTodos: List<String> = emptyList(),
+    val memoryYearsAgo: Int? = null,
+    val memoryExcerpt: String? = null,
+    val unreadReviewCount: Int = 0,
+    val forDate: String,
+    val isLocal: Boolean = true
 )
 
 /** 自我画像叙事的 DataStore 缓存体（不含 java.time 类型） */
@@ -485,6 +607,24 @@ data class MidnightReviewConfig(
     val hour: Int = 22,
     val minute: Int = 0,
     val persona: String = "parallel_self"
+)
+
+/**
+ * 晨间简报配置
+ */
+data class MorningBriefConfig(
+    val enabled: Boolean = false,
+    val hour: Int = 8,
+    val minute: Int = 0
+)
+
+/**
+ * 主动关怀配置：本地规则命中时由 AI 措辞、主动发一条通知，每天最多一条
+ */
+data class ProactiveNudgeConfig(
+    val enabled: Boolean = false,
+    val hour: Int = 20,
+    val minute: Int = 0
 )
 
 /**

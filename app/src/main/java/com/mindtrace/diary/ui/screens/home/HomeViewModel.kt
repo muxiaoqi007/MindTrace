@@ -9,6 +9,7 @@ import com.mindtrace.diary.domain.repository.DiaryRepository
 import com.mindtrace.diary.domain.repository.FlashNoteRepository
 import com.mindtrace.diary.domain.repository.TodoRepository
 import com.mindtrace.diary.domain.usecase.ai.GenerateDailyInsightUseCase
+import com.mindtrace.diary.domain.usecase.ai.GenerateMorningBriefUseCase
 import com.mindtrace.diary.domain.usecase.diary.AppendFlashNoteToDiaryUseCase
 import com.mindtrace.diary.domain.usecase.diary.RemoveFlashNoteFromDiaryUseCase
 import com.mindtrace.diary.domain.usecase.flashnote.DeleteFlashNoteUseCase
@@ -18,6 +19,8 @@ import com.mindtrace.diary.domain.usecase.todo.ToggleTodoUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,6 +36,7 @@ class HomeViewModel @Inject constructor(
     private val deleteFlashNoteUseCase: DeleteFlashNoteUseCase,
     private val removeFlashNoteFromDiaryUseCase: RemoveFlashNoteFromDiaryUseCase,
     private val generateDailyInsightUseCase: GenerateDailyInsightUseCase,
+    private val generateMorningBriefUseCase: GenerateMorningBriefUseCase,
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
@@ -44,6 +48,8 @@ class HomeViewModel @Inject constructor(
         loadUnreadCount()
         observeAIConfig()
         loadDailyInsight()
+        loadMorningBrief()
+        loadDailyIntention()
     }
 
     private fun observeAIConfig() {
@@ -91,6 +97,74 @@ class HomeViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    /** 晨间简报：早晨时段读当天缓存，未命中则生成（AI 失败自动降级为本地简报） */
+    private fun loadMorningBrief() {
+        if (!isMorningPeriod()) return
+        viewModelScope.launch {
+            val cached = generateMorningBriefUseCase.getCachedOrNull()
+            if (cached != null) {
+                _uiState.update { it.copy(morningBrief = cached, briefLoading = false) }
+            } else {
+                refreshBrief(showError = false)
+            }
+        }
+    }
+
+    /** 用户手动刷新简报；[showError] 控制失败时是否反馈到界面 */
+    fun refreshBrief(showError: Boolean = true) {
+        if (_uiState.value.briefLoading) return
+        _uiState.update { it.copy(briefLoading = true) }
+        viewModelScope.launch {
+            generateMorningBriefUseCase().fold(
+                onSuccess = { brief ->
+                    _uiState.update {
+                        it.copy(morningBrief = brief, briefLoading = false, briefFailed = false)
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(briefLoading = false, briefFailed = true).let { state ->
+                            if (showError) state.copy(error = e.message ?: "生成简报失败") else state
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+    /** 晨间简报的展示时段，与 [HomeScreen] 卡片切换逻辑保持一致 */
+    private fun isMorningPeriod(): Boolean = LocalTime.now().hour in 5..11
+
+    private fun loadDailyIntention() {
+        viewModelScope.launch {
+            val intention = settingsDataStore.getDailyIntention(LocalDate.now())
+            _uiState.update { it.copy(todayIntention = intention) }
+        }
+    }
+
+    /** 保存今天的意图；留空视为清除 */
+    fun setTodayIntention(text: String) {
+        val trimmed = text.trim().take(60)
+        viewModelScope.launch {
+            if (trimmed.isEmpty()) {
+                settingsDataStore.setDailyIntention(LocalDate.now(), "")
+                _uiState.update { it.copy(todayIntention = null) }
+            } else {
+                settingsDataStore.setDailyIntention(LocalDate.now(), trimmed)
+                _uiState.update { it.copy(todayIntention = trimmed) }
+            }
+        }
+    }
+
+    /** 切换底部快捷输入的"问 AI"模式 */
+    fun toggleAskAIMode() {
+        _uiState.update { it.copy(isAskAIMode = !it.isAskAIMode, quickInput = "") }
+    }
+
+    fun clearQuickInput() {
+        _uiState.update { it.copy(quickInput = "") }
     }
 
     private fun loadUnreadCount() {

@@ -55,7 +55,7 @@ import com.mindtrace.diary.core.database.entity.DailyMediaPickEntity
         LexiconEvidenceEntity::class,
         DailyMediaPickEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -369,6 +369,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE diaries ADD COLUMN latitude REAL DEFAULT NULL")
                 database.execSQL("ALTER TABLE diaries ADD COLUMN longitude REAL DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 记忆增加关键人物/事物关键词，供人物召回等主动关怀规则检索
+                database.execSQL("ALTER TABLE ai_memories ADD COLUMN subject TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE ai_memory_candidates ADD COLUMN subject TEXT NOT NULL DEFAULT ''")
             }
         }
     }

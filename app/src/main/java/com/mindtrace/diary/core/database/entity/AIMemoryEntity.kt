@@ -14,6 +14,7 @@ data class AIMemoryEntity(
     val type: String,                     // "auto" 自动提取, "manual" 手动设置
     val category: String,                 // 分类：personality, preference, fact, event, relationship
     val content: String,                  // 记忆内容
+    val subject: String = "",             // 关键人物/事物关键词，RELATIONSHIP 类用于人物召回
     val source: String? = null,           // 来源：diary_id, conversation_id, 或 "user_input"
     val importance: Float = 0.5f,         // 重要性 0-1
     val isActive: Boolean = true,         // 是否启用

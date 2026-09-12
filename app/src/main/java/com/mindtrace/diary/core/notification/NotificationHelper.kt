@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.mindtrace.diary.R
 import com.mindtrace.diary.app.MainActivity
 import com.mindtrace.diary.domain.model.AiReview
+import com.mindtrace.diary.domain.model.MorningBrief
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,12 +41,25 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_NAME_ONE_SECOND = "一秒人生"
         const val CHANNEL_DESC_ONE_SECOND = "每日选择一个生活片段的提醒"
 
+        const val CHANNEL_ID_MORNING_BRIEF = "morning_brief"
+        const val CHANNEL_NAME_MORNING_BRIEF = "晨间简报"
+        const val CHANNEL_DESC_MORNING_BRIEF = "每天早上的专属简报通知"
+
+        const val CHANNEL_ID_PROACTIVE_NUDGE = "proactive_nudge"
+        const val CHANNEL_NAME_PROACTIVE_NUDGE = "主动关怀"
+        const val CHANNEL_DESC_PROACTIVE_NUDGE = "AI 检测到你的状态变化时主动送上的关怀"
+
         const val NOTIFICATION_ID_MIDNIGHT_REVIEW = 1001
         const val NOTIFICATION_ID_SILENCE_BREAK = 1002
         const val NOTIFICATION_ID_TIME_CAPSULE_BASE = 2000
         const val NOTIFICATION_ID_ONE_SECOND = 3001
+        const val NOTIFICATION_ID_MORNING_BRIEF = 1004
+        const val NOTIFICATION_ID_PROACTIVE_NUDGE = 1005
 
         const val EXTRA_REVIEW_ID = "review_id"
+
+        const val ACTION_VIEW_REVIEW = "ACTION_VIEW_REVIEW"
+        const val ACTION_OPEN_AI_CHAT = "ACTION_OPEN_AI_CHAT"
     }
 
     /**
@@ -88,8 +102,27 @@ class NotificationHelper @Inject constructor(
                 NotificationManager.IMPORTANCE_LOW
             ).apply { description = CHANNEL_DESC_ONE_SECOND }
 
+            val morningBriefChannel = NotificationChannel(
+                CHANNEL_ID_MORNING_BRIEF,
+                CHANNEL_NAME_MORNING_BRIEF,
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = CHANNEL_DESC_MORNING_BRIEF
+                enableLights(true)
+                enableVibration(true)
+            }
+
+            val proactiveNudgeChannel = NotificationChannel(
+                CHANNEL_ID_PROACTIVE_NUDGE,
+                CHANNEL_NAME_PROACTIVE_NUDGE,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = CHANNEL_DESC_PROACTIVE_NUDGE }
+
             notificationManager.createNotificationChannels(
-                listOf(midnightReviewChannel, silenceBreakChannel, timeCapsuleChannel, oneSecondChannel)
+                listOf(
+                    midnightReviewChannel, silenceBreakChannel, timeCapsuleChannel,
+                    oneSecondChannel, morningBriefChannel, proactiveNudgeChannel
+                )
             )
         }
     }
@@ -106,7 +139,7 @@ class NotificationHelper @Inject constructor(
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_REVIEW_ID, review.id)
-            action = "ACTION_VIEW_REVIEW"
+            action = ACTION_VIEW_REVIEW
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -129,6 +162,98 @@ class NotificationHelper @Inject constructor(
         try {
             NotificationManagerCompat.from(context).notify(
                 NOTIFICATION_ID_MIDNIGHT_REVIEW,
+                notification
+            )
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+        }
+    }
+
+    /**
+     * 显示晨间简报通知
+     */
+    @SuppressLint("MissingPermission")
+    fun showMorningBriefNotification(brief: MorningBrief) {
+        if (!hasNotificationPermission()) {
+            return
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_ID_MORNING_BRIEF,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val bigText = buildString {
+            append(brief.greeting)
+            brief.observation?.let { append("\n").append(it) }
+            if (brief.streakDays > 0) append("\n已连续记录 ${brief.streakDays} 天")
+            if (brief.pendingTodos.isNotEmpty()) append("\n今日待办：${brief.pendingTodos.first()}")
+            brief.memoryExcerpt?.let {
+                brief.memoryYearsAgo?.let { years -> append("\n${years}年前的今天：") }
+                append(it)
+            }
+        }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_MORNING_BRIEF)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("今日简报")
+            .setContentText(brief.greeting)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(
+                NOTIFICATION_ID_MORNING_BRIEF,
+                notification
+            )
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and notify().
+        }
+    }
+
+    /**
+     * 显示主动关怀通知
+     */
+    @SuppressLint("MissingPermission")
+    fun showProactiveNudgeNotification(message: String) {
+        if (!hasNotificationPermission()) {
+            return
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = ACTION_OPEN_AI_CHAT
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_ID_PROACTIVE_NUDGE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_PROACTIVE_NUDGE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("想和你说")
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(
+                NOTIFICATION_ID_PROACTIVE_NUDGE,
                 notification
             )
         } catch (_: SecurityException) {

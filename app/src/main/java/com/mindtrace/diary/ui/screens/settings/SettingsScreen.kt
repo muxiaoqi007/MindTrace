@@ -167,6 +167,14 @@ fun SettingsScreen(
                     onTestNow = viewModel::testMidnightReview
                 )
                 InsetDivider()
+                MorningBriefSettings(
+                    config = uiState.morningBriefConfig,
+                    aiConfigured = uiState.aiConfigured,
+                    onEnabledChange = viewModel::setMorningBriefEnabled,
+                    onTimeChange = viewModel::setMorningBriefTime,
+                    onTestNow = viewModel::testMorningBrief
+                )
+                InsetDivider()
                 SilenceBreakSettings(
                     config = uiState.silenceBreakConfig,
                     emailConfig = uiState.emailConfig,
@@ -448,6 +456,95 @@ private fun DataManagementSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = !isExporting && !isImporting) { onImportClick() }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MorningBriefSettings(
+    config: com.mindtrace.diary.core.datastore.MorningBriefConfig,
+    aiConfigured: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTimeChange: (Int, Int) -> Unit,
+    onTestNow: () -> Unit
+) {
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // 开关：简报不依赖 AI，未配置 AI 时为本地拼装
+        ListItem(
+            headlineContent = { Text("晨间简报") },
+            supportingContent = {
+                Text(
+                    if (aiConfigured) "每天早上收到一份专属简报"
+                    else "每天早上的简报，配置 AI 后内容更懂你"
+                )
+            },
+            leadingContent = {
+                Icon(Icons.Default.WbSunny, contentDescription = null)
+            },
+            trailingContent = {
+                Switch(
+                    checked = config.enabled,
+                    onCheckedChange = onEnabledChange
+                )
+            }
+        )
+
+        if (config.enabled) {
+            // 时间设置
+            ListItem(
+                headlineContent = { Text("简报时间") },
+                supportingContent = {
+                    Text(String.format("%02d:%02d", config.hour, config.minute))
+                },
+                leadingContent = {
+                    Icon(Icons.Default.Schedule, contentDescription = null)
+                },
+                modifier = Modifier.clickable { showTimePickerDialog = true }
+            )
+
+            // 测试按钮
+            OutlinedButton(
+                onClick = onTestNow,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text("立即测试")
+            }
+        }
+    }
+
+    // 时间选择对话框
+    if (showTimePickerDialog) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = config.hour,
+            initialMinute = config.minute
+        )
+
+        AlertDialog(
+            onDismissRequest = { showTimePickerDialog = false },
+            title = { Text("选择简报时间") },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onTimeChange(timePickerState.hour, timePickerState.minute)
+                        showTimePickerDialog = false
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePickerDialog = false }) {
+                    Text("取消")
+                }
+            }
         )
     }
 }

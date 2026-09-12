@@ -10,6 +10,7 @@ data class AIMemoryCandidateEntity(
     val id: String = UUID.randomUUID().toString(),
     val category: String,
     val content: String,
+    val subject: String = "",             // 关键人物/事物关键词，确认后随记忆一起转正
     val source: String? = null,
     val importance: Float = 0.5f,
     val confidence: Float = 0.5f,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -23,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mindtrace.diary.core.datastore.SettingsDataStore
+import com.mindtrace.diary.core.notification.NotificationHelper
 import com.mindtrace.diary.ui.navigation.BottomNavBar
 import com.mindtrace.diary.ui.navigation.NavGraph
 import com.mindtrace.diary.ui.navigation.Screen
@@ -51,6 +53,14 @@ class MainActivity : ComponentActivity() {
             val mainViewModel: MainViewModel = hiltViewModel()
             val themeMode by mainViewModel.themeMode.collectAsState()
             val moodIconPackId by mainViewModel.moodIconPackId.collectAsState()
+
+            // 通知深链（主动关怀→AI 聊天、深夜回信→回信详情）
+            LaunchedEffect(intent) {
+                mainViewModel.handleIntent(
+                    action = intent?.action,
+                    reviewId = intent?.getStringExtra(NotificationHelper.EXTRA_REVIEW_ID)
+                )
+            }
 
             MindTraceTheme(themeMode = themeMode) {
                 ProvideMoodIconPack(moodIconPackId = moodIconPackId) {

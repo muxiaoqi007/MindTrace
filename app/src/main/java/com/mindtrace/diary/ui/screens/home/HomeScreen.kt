@@ -35,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.mindtrace.diary.core.util.DateUtils
+import com.mindtrace.diary.domain.model.MorningBrief
 import com.mindtrace.diary.domain.model.TimelineItem
 import com.mindtrace.diary.ui.components.MoodChip
 import com.mindtrace.diary.ui.theme.Spacing
@@ -67,6 +68,8 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showAllFeatures by remember { mutableStateOf(false) }
+    // 早晨时段首页展示晨间简报，其余时段展示今日洞察
+    val isMorningPeriod = remember { LocalTime.now().hour in 5..11 }
 
     val isTodoMode = uiState.selectedFilter == FilterType.TODO
 
@@ -122,9 +125,25 @@ fun HomeScreen(
             QuickInputBar(
                 value = uiState.quickInput,
                 onValueChange = viewModel::updateQuickInput,
-                onSend = viewModel::submitQuickInput,
+                onSend = {
+                    if (uiState.isAskAIMode) {
+                        val question = uiState.quickInput.trim()
+                        if (question.isNotEmpty()) {
+                            viewModel.clearQuickInput()
+                            onAskAIQuestion(question)
+                        }
+                    } else {
+                        viewModel.submitQuickInput()
+                    }
+                },
                 isLoading = uiState.isAddingItem,
-                placeholder = if (isTodoMode) "添加一个待办..." else "记录一个闪念..."
+                isAskMode = uiState.isAskAIMode,
+                onToggleMode = viewModel::toggleAskAIMode,
+                placeholder = when {
+                    uiState.isAskAIMode -> "问 AI 伙伴…"
+                    isTodoMode -> "添加一个待办..."
+                    else -> "记录一个闪念..."
+                }
             )
         }
     ) { paddingValues ->
@@ -134,17 +153,31 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // —— 今日洞察 ——
+            // —— 今日简报（晨）/ 今日洞察（其余时段）——
             item(key = "insight") {
-                DailyInsightCard(
-                    insight = uiState.dailyInsight,
-                    isLoading = uiState.insightLoading,
-                    insightFailed = uiState.insightFailed,
-                    isAIConfigured = uiState.isAIConfigured,
-                    onRefresh = { viewModel.refreshInsight() },
-                    onConfigureAI = onAISettingsClick,
-                    onAskAI = onAskAIQuestion
-                )
+                if (isMorningPeriod) {
+                    MorningBriefCard(
+                        brief = uiState.morningBrief,
+                        isLoading = uiState.briefLoading,
+                        briefFailed = uiState.briefFailed,
+                        isAIConfigured = uiState.isAIConfigured,
+                        intention = uiState.todayIntention,
+                        onSetIntention = viewModel::setTodayIntention,
+                        onRefresh = { viewModel.refreshBrief() },
+                        onConfigureAI = onAISettingsClick,
+                        onAskAI = onAskAIQuestion
+                    )
+                } else {
+                    DailyInsightCard(
+                        insight = uiState.dailyInsight,
+                        isLoading = uiState.insightLoading,
+                        insightFailed = uiState.insightFailed,
+                        isAIConfigured = uiState.isAIConfigured,
+                        onRefresh = { viewModel.refreshInsight() },
+                        onConfigureAI = onAISettingsClick,
+                        onAskAI = onAskAIQuestion
+                    )
+                }
             }
 
             // —— 此刻灵感：按时间段推荐的功能入口 ——
@@ -386,6 +419,295 @@ private fun DailyInsightCard(
                         Text("去配置")
                     }
                 }
+            }
+        }
+    }
+}
+
+// ---------- 晨间简报 ----------
+
+@Composable
+private fun MorningBriefCard(
+    brief: MorningBrief?,
+    isLoading: Boolean,
+    briefFailed: Boolean,
+    isAIConfigured: Boolean,
+    intention: String?,
+    onSetIntention: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onConfigureAI: () -> Unit,
+    onAskAI: (String) -> Unit
+) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = Spacing.md)
+    ) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.WbSunny,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = "今日简报",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp), enabled = !isLoading) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "换一份简报",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            when {
+                isLoading && brief == null -> {
+                    repeat(2) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(14.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f),
+                                    MaterialTheme.shapes.small
+                                )
+                        )
+                        Spacer(Modifier.height(Spacing.xs))
+                    }
+                    Text(
+                        text = "正在为你准备今天的简报…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                brief != null -> {
+                    Text(
+                        text = brief.greeting,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    brief.observation?.let { observation ->
+                        Spacer(Modifier.height(Spacing.sm))
+                        Text(
+                            text = observation,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                        )
+                    }
+                    Spacer(Modifier.height(Spacing.md))
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        if (brief.streakDays > 0) {
+                            BriefStatRow(
+                                icon = Icons.Default.LocalFireDepartment,
+                                text = "已连续记录 ${brief.streakDays} 天"
+                            )
+                        }
+                        if (brief.pendingTodoCount > 0) {
+                            val firstTodo = brief.pendingTodos.firstOrNull()
+                            BriefStatRow(
+                                icon = Icons.Default.Checklist,
+                                text = if (firstTodo != null) {
+                                    "今日待办 ${brief.pendingTodoCount} 件：$firstTodo"
+                                } else {
+                                    "今日待办 ${brief.pendingTodoCount} 件"
+                                }
+                            )
+                        }
+                        brief.memoryExcerpt?.let { excerpt ->
+                            BriefStatRow(
+                                icon = Icons.Default.History,
+                                text = brief.memoryYearsAgo?.let { "${it}年前的今天：$excerpt" } ?: excerpt
+                            )
+                        }
+                        if (brief.unreadReviewCount > 0) {
+                            BriefStatRow(
+                                icon = Icons.Default.MarkEmailUnread,
+                                text = "有 ${brief.unreadReviewCount} 封回信还没读"
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.md))
+                    DailyIntentionRow(
+                        intention = intention,
+                        onSet = onSetIntention
+                    )
+                    brief.question?.let { question ->
+                        Spacer(Modifier.height(Spacing.md))
+                        Surface(
+                            onClick = { onAskAI(question) },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                            ) {
+                                Text(
+                                    text = question,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    Icons.Default.ArrowForward,
+                                    contentDescription = "去和 AI 聊聊",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                briefFailed -> {
+                    Text(
+                        text = "这次没能准备好简报，稍后再来看看。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    TextButton(onClick = onRefresh) {
+                        Text("再试一次")
+                    }
+                }
+                else -> {
+                    Text(
+                        text = if (isAIConfigured) {
+                            "还没有今天的简报，下拉刷新或点右上角换一份。"
+                        } else {
+                            "配置 AI 伙伴后，每天早上会有一份基于你日记的专属简报。"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                    if (!isAIConfigured) {
+                        Spacer(Modifier.height(Spacing.sm))
+                        TextButton(onClick = onConfigureAI) {
+                            Text("去配置")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BriefStatRow(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp)
+        )
+        Spacer(Modifier.width(Spacing.xs))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** 「今日意图」：早晨写下，当晚由深夜回信回收对照；留空保存视为清除 */
+@Composable
+private fun DailyIntentionRow(intention: String?, onSet: (String) -> Unit) {
+    var editing by remember { mutableStateOf(intention == null) }
+    var text by remember { mutableStateOf(intention.orEmpty()) }
+
+    LaunchedEffect(intention) {
+        if (intention != null) {
+            editing = false
+            text = intention
+        }
+    }
+
+    if (editing) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = {
+                Text(
+                    text = "今天想怎么过？写下一句意图（可选）",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            ),
+            trailingIcon = {
+                if (text.trim().isNotEmpty()) {
+                    IconButton(onClick = { onSet(text) }) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "保存意图",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+    } else if (intention != null) {
+        Surface(
+            onClick = { editing = true },
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+            ) {
+                Icon(
+                    Icons.Default.Flag,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = "今日意图：$intention",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "修改意图",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.size(14.dp)
+                )
             }
         }
     }
@@ -844,6 +1166,8 @@ private fun QuickInputBar(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     isLoading: Boolean,
+    isAskMode: Boolean,
+    onToggleMode: () -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier
 ) {
@@ -859,6 +1183,17 @@ private fun QuickInputBar(
                 .padding(horizontal = Spacing.lg, vertical = Spacing.sm)
                 .imePadding()
         ) {
+            IconButton(onClick = onToggleMode) {
+                Icon(
+                    imageVector = if (isAskMode) Icons.Default.AutoAwesome else Icons.Default.Edit,
+                    contentDescription = if (isAskMode) "切换到记录模式" else "切换到问 AI 模式",
+                    tint = if (isAskMode) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,

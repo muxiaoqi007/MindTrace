@@ -6,10 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mindtrace.diary.core.datastore.EmailConfig
 import com.mindtrace.diary.core.datastore.MidnightReviewConfig
+import com.mindtrace.diary.core.datastore.MorningBriefConfig
 import com.mindtrace.diary.core.datastore.SettingsDataStore
 import com.mindtrace.diary.core.datastore.SilenceBreakConfig
 import com.mindtrace.diary.core.datastore.ThemeMode
 import com.mindtrace.diary.core.datastore.WebDavConfig
+import com.mindtrace.diary.core.brief.MorningBriefScheduler
 import com.mindtrace.diary.core.email.EmailSender
 import com.mindtrace.diary.core.notification.NotificationHelper
 import com.mindtrace.diary.core.review.MidnightReviewScheduler
@@ -33,6 +35,7 @@ data class SettingsUiState(
     val webDavConfig: WebDavConfig = WebDavConfig("", "", "", "/MindTrace"),
     val moodIconPackId: String = "classic",
     val midnightReviewConfig: MidnightReviewConfig = MidnightReviewConfig(),
+    val morningBriefConfig: MorningBriefConfig = MorningBriefConfig(),
     val silenceBreakConfig: SilenceBreakConfig = SilenceBreakConfig(),
     val emailConfig: EmailConfig = EmailConfig(),
     val diaryAnalysisEnabled: Boolean = false,
@@ -81,7 +84,8 @@ class SettingsViewModel @Inject constructor(
                 settingsDataStore.aiConfig,
                 settingsDataStore.silenceBreakConfig,
                 settingsDataStore.diaryAnalysisEnabled,
-                settingsDataStore.emailConfig
+                settingsDataStore.emailConfig,
+                settingsDataStore.morningBriefConfig
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val theme = values[0] as ThemeMode
@@ -92,12 +96,14 @@ class SettingsViewModel @Inject constructor(
                 val silenceBreak = values[5] as SilenceBreakConfig
                 val diaryAnalysis = values[6] as Boolean
                 val email = values[7] as EmailConfig
+                val morningBrief = values[8] as MorningBriefConfig
 
                 SettingsUiState(
                     themeMode = theme,
                     webDavConfig = webDav,
                     moodIconPackId = moodIconPack,
                     midnightReviewConfig = midnightReview,
+                    morningBriefConfig = morningBrief,
                     silenceBreakConfig = silenceBreak,
                     emailConfig = email,
                     diaryAnalysisEnabled = diaryAnalysis,
@@ -110,6 +116,7 @@ class SettingsViewModel @Inject constructor(
                         webDavConfig = state.webDavConfig,
                         moodIconPackId = state.moodIconPackId,
                         midnightReviewConfig = state.midnightReviewConfig,
+                        morningBriefConfig = state.morningBriefConfig,
                         silenceBreakConfig = state.silenceBreakConfig,
                         emailConfig = state.emailConfig,
                         diaryAnalysisEnabled = state.diaryAnalysisEnabled,
@@ -233,6 +240,34 @@ class SettingsViewModel @Inject constructor(
 
     fun testMidnightReview() {
         MidnightReviewScheduler.executeNow(context)
+    }
+
+    // 晨间简报相关方法
+    fun setMorningBriefEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setMorningBriefEnabled(enabled)
+            if (enabled) {
+                val config = _uiState.value.morningBriefConfig
+                MorningBriefScheduler.scheduleNext(context, config.hour, config.minute)
+            } else {
+                MorningBriefScheduler.cancel(context)
+            }
+        }
+    }
+
+    fun setMorningBriefTime(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            val currentConfig = _uiState.value.morningBriefConfig
+            val newConfig = currentConfig.copy(hour = hour, minute = minute)
+            settingsDataStore.setMorningBriefConfig(newConfig)
+            if (newConfig.enabled) {
+                MorningBriefScheduler.scheduleNext(context, hour, minute)
+            }
+        }
+    }
+
+    fun testMorningBrief() {
+        MorningBriefScheduler.executeNow(context)
     }
 
     // 沉默唤醒相关方法

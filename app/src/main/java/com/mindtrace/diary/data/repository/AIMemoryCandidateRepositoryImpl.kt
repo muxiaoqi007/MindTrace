@@ -46,13 +46,15 @@ class AIMemoryCandidateRepositoryImpl @Inject constructor(
         importance: Float,
         confidence: Float,
         evidence: String?,
-        reason: String?
+        reason: String?,
+        subject: String
     ): AIMemoryCandidate {
         val now = LocalDateTime.now()
         val candidate = AIMemoryCandidate(
             id = UUID.randomUUID().toString(),
             category = category,
             content = content,
+            subject = subject.trim(),
             source = source,
             importance = importance.coerceIn(0f, 1f),
             confidence = confidence.coerceIn(0f, 1f),

@@ -1,10 +1,13 @@
 package com.mindtrace.diary.ui.screens.ai
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mindtrace.diary.core.datastore.SettingsDataStore
+import com.mindtrace.diary.core.nudge.ProactiveNudgeScheduler
 import com.mindtrace.diary.domain.usecase.ai.TestAIConnectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +17,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AISettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val testAIConnectionUseCase: TestAIConnectionUseCase
 ) : ViewModel() {
@@ -32,6 +36,11 @@ class AISettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(memoryLearningEnabled = enabled) }
             }
         }
+        viewModelScope.launch {
+            settingsDataStore.proactiveNudgeConfig.collect { config ->
+                _uiState.update { it.copy(proactiveNudgeConfig = config) }
+            }
+        }
     }
 
     fun updateEnabled(enabled: Boolean) {
@@ -45,6 +54,34 @@ class AISettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsDataStore.setMemoryLearningEnabled(enabled)
         }
+    }
+
+    // 主动关怀相关方法
+    fun updateProactiveNudgeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setProactiveNudgeEnabled(enabled)
+            if (enabled) {
+                val config = _uiState.value.proactiveNudgeConfig
+                ProactiveNudgeScheduler.scheduleNext(context, config.hour, config.minute)
+            } else {
+                ProactiveNudgeScheduler.cancel(context)
+            }
+        }
+    }
+
+    fun updateProactiveNudgeTime(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            val currentConfig = _uiState.value.proactiveNudgeConfig
+            val newConfig = currentConfig.copy(hour = hour, minute = minute)
+            settingsDataStore.setProactiveNudgeConfig(newConfig)
+            if (newConfig.enabled) {
+                ProactiveNudgeScheduler.scheduleNext(context, hour, minute)
+            }
+        }
+    }
+
+    fun testProactiveNudge() {
+        ProactiveNudgeScheduler.executeNow(context)
     }
 
     fun updateBaseUrl(url: String) {

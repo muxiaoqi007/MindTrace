@@ -20,7 +20,8 @@ interface AIMemoryCandidateRepository {
         importance: Float = 0.5f,
         confidence: Float = 0.5f,
         evidence: String? = null,
-        reason: String? = null
+        reason: String? = null,
+        subject: String = ""
     ): AIMemoryCandidate
 
     suspend fun addCandidates(candidates: List<AIMemoryCandidate>)

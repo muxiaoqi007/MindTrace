@@ -10,6 +10,8 @@ data class AIMemoryCandidate(
     val id: String,
     val category: MemoryCategory,
     val content: String,
+    /** 关键人物/事物关键词，确认后随记忆一起转正 */
+    val subject: String = "",
     val source: String? = null,
     val importance: Float = 0.5f,
     val confidence: Float = 0.5f,

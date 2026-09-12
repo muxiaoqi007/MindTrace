@@ -45,7 +45,8 @@ interface AIMemoryRepository {
     suspend fun addManualMemory(
         content: String,
         category: MemoryCategory,
-        importance: Float = 0.8f
+        importance: Float = 0.8f,
+        subject: String = ""
     ): AIMemory
 
     /**
@@ -55,7 +56,8 @@ interface AIMemoryRepository {
         content: String,
         category: MemoryCategory,
         source: String,
-        importance: Float = 0.5f
+        importance: Float = 0.5f,
+        subject: String = ""
     ): AIMemory
 
     /**

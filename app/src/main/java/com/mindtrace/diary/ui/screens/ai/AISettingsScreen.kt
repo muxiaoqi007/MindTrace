@@ -17,9 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,7 +38,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,6 +55,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mindtrace.diary.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -220,6 +226,100 @@ fun AISettingsScreen(
                         onCheckedChange = viewModel::updateMemoryLearning
                     )
                 }
+            }
+
+            var showNudgeTimePicker by remember { mutableStateOf(false) }
+
+            Card {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "主动关怀", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "检测到心情低落或记录要断时，AI 主动送上一句关怀，每天最多一条",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = uiState.proactiveNudgeConfig.enabled,
+                            onCheckedChange = viewModel::updateProactiveNudgeEnabled
+                        )
+                    }
+
+                    if (uiState.proactiveNudgeConfig.enabled) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.md))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showNudgeTimePicker = true }
+                        ) {
+                            Text(text = "提醒时间", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = String.format(
+                                    "%02d:%02d",
+                                    uiState.proactiveNudgeConfig.hour,
+                                    uiState.proactiveNudgeConfig.minute
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.sm))
+                        OutlinedButton(
+                            onClick = viewModel::testProactiveNudge,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("立即测试")
+                        }
+                    }
+                }
+            }
+
+            if (showNudgeTimePicker) {
+                val nudgeTimePickerState = rememberTimePickerState(
+                    initialHour = uiState.proactiveNudgeConfig.hour,
+                    initialMinute = uiState.proactiveNudgeConfig.minute
+                )
+                AlertDialog(
+                    onDismissRequest = { showNudgeTimePicker = false },
+                    title = { Text("选择提醒时间") },
+                    text = { TimePicker(state = nudgeTimePickerState) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.updateProactiveNudgeTime(
+                                    nudgeTimePickerState.hour,
+                                    nudgeTimePickerState.minute
+                                )
+                                showNudgeTimePicker = false
+                            }
+                        ) {
+                            Text("确定")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showNudgeTimePicker = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
             }
 
             SettingsNavCard(

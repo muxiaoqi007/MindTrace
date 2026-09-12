@@ -56,7 +56,8 @@ class AIMemoryRepositoryImpl @Inject constructor(
     override suspend fun addManualMemory(
         content: String,
         category: MemoryCategory,
-        importance: Float
+        importance: Float,
+        subject: String
     ): AIMemory {
         val now = LocalDateTime.now()
         val memory = AIMemory(
@@ -64,6 +65,7 @@ class AIMemoryRepositoryImpl @Inject constructor(
             type = MemoryType.MANUAL,
             category = category,
             content = content,
+            subject = subject.trim(),
             source = "user_input",
             importance = importance,
             isActive = true,
@@ -78,7 +80,8 @@ class AIMemoryRepositoryImpl @Inject constructor(
         content: String,
         category: MemoryCategory,
         source: String,
-        importance: Float
+        importance: Float,
+        subject: String
     ): AIMemory {
         val now = LocalDateTime.now()
         val memory = AIMemory(
@@ -86,6 +89,7 @@ class AIMemoryRepositoryImpl @Inject constructor(
             type = MemoryType.AUTO,
             category = category,
             content = content,
+            subject = subject.trim(),
             source = source,
             importance = importance,
             isActive = true,

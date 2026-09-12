@@ -1,12 +1,18 @@
 package com.mindtrace.diary.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.mindtrace.diary.app.DeepLink
+import com.mindtrace.diary.app.MainViewModel
 import com.mindtrace.diary.ui.screens.calendar.CalendarScreen
 import com.mindtrace.diary.ui.screens.diary.DiaryDetailScreen
 import com.mindtrace.diary.ui.screens.diary.DiaryEditScreen
@@ -43,6 +49,22 @@ fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val deepLink by mainViewModel.deepLink.collectAsState()
+    LaunchedEffect(deepLink) {
+        when (val link = deepLink) {
+            is DeepLink.AIChat -> {
+                navController.navigate(Screen.AIChat.createRoute())
+                mainViewModel.consumeDeepLink()
+            }
+            is DeepLink.AiReview -> {
+                navController.navigate(Screen.AiReviewDetail.createRoute(link.reviewId))
+                mainViewModel.consumeDeepLink()
+            }
+            null -> {}
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,

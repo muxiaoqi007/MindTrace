@@ -28,7 +28,8 @@ class ApproveMemoryCandidateUseCase @Inject constructor(
                     content = candidate.content.trim(),
                     category = candidate.category,
                     source = candidate.source ?: "candidate:${candidate.id}",
-                    importance = candidate.importance
+                    importance = candidate.importance,
+                    subject = candidate.subject
                 )
             }
 
